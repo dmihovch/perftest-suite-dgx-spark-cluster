@@ -1,0 +1,9 @@
+{
+  "hostname": "cisc-hoedus",
+  "role": "client",
+  "kernel": "7.0.0-1019-nvidia",
+  "distro": "Ubuntu 24.04.5 LTS",
+  "perftest_version": "24.01.0+0.38-1build2",
+  "rdma_core_version": "50.0-2ubuntu0.2",
+  "captured_at": "2026-10-08T14:31:59-04:00"
+}

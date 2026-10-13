@@ -1,0 +1,66 @@
+ib_send_lat_rocep1s0f0
+  host   : ib_send_lat -d rocep1s0f0 -i 1 -F -p 18515 -c RC -n 15000 --report_gbits
+  client : ib_send_lat -d rocep1s0f0 -i 1 -F -p 18515 -c RC -n 15000 --report_gbits 10.10.10.2
+ib_write_lat_rocep1s0f0
+  host   : ib_write_lat -d rocep1s0f0 -i 1 -F -p 18516 -c RC -n 15000 --report_gbits
+  client : ib_write_lat -d rocep1s0f0 -i 1 -F -p 18516 -c RC -n 15000 --report_gbits 10.10.10.2
+ib_read_lat_rocep1s0f0
+  host   : ib_read_lat -d rocep1s0f0 -i 1 -F -p 18517 -c RC -n 15000 --report_gbits
+  client : ib_read_lat -d rocep1s0f0 -i 1 -F -p 18517 -c RC -n 15000 --report_gbits 10.10.10.2
+ib_atomic_lat_rocep1s0f0
+  host   : ib_atomic_lat -d rocep1s0f0 -i 1 -F -p 18518 -c RC -n 15000 --report_gbits
+  client : ib_atomic_lat -d rocep1s0f0 -i 1 -F -p 18518 -c RC -n 15000 --report_gbits 10.10.10.2
+ib_send_bw_rocep1s0f0
+  host   : ib_send_bw -d rocep1s0f0 -i 1 -F -p 18519 -c RC -n 15000 --report_gbits
+  client : ib_send_bw -d rocep1s0f0 -i 1 -F -p 18519 -c RC -n 15000 --report_gbits 10.10.10.2
+ib_write_bw_rocep1s0f0
+  host   : ib_write_bw -d rocep1s0f0 -i 1 -F -p 18520 -c RC -n 15000 --report_gbits
+  client : ib_write_bw -d rocep1s0f0 -i 1 -F -p 18520 -c RC -n 15000 --report_gbits 10.10.10.2
+ib_read_bw_rocep1s0f0
+  host   : ib_read_bw -d rocep1s0f0 -i 1 -F -p 18521 -c RC -n 15000 --report_gbits
+  client : ib_read_bw -d rocep1s0f0 -i 1 -F -p 18521 -c RC -n 15000 --report_gbits 10.10.10.2
+ib_atomic_bw_rocep1s0f0
+  host   : ib_atomic_bw -d rocep1s0f0 -i 1 -F -p 18522 -c RC -n 15000 --report_gbits
+  client : ib_atomic_bw -d rocep1s0f0 -i 1 -F -p 18522 -c RC -n 15000 --report_gbits 10.10.10.2
+ib_send_bw_bidi_rocep1s0f0
+  host   : ib_send_bw -d rocep1s0f0 -i 1 -F -p 18523 -c RC -n 15000 --report_gbits -b
+  client : ib_send_bw -d rocep1s0f0 -i 1 -F -p 18523 -c RC -n 15000 --report_gbits -b 10.10.10.2
+ib_write_bw_bidi_rocep1s0f0
+  host   : ib_write_bw -d rocep1s0f0 -i 1 -F -p 18524 -c RC -n 15000 --report_gbits -b
+  client : ib_write_bw -d rocep1s0f0 -i 1 -F -p 18524 -c RC -n 15000 --report_gbits -b 10.10.10.2
+ib_read_bw_bidi_rocep1s0f0
+  host   : ib_read_bw -d rocep1s0f0 -i 1 -F -p 18525 -c RC -n 15000 --report_gbits -b
+  client : ib_read_bw -d rocep1s0f0 -i 1 -F -p 18525 -c RC -n 15000 --report_gbits -b 10.10.10.2
+ib_send_lat_roceP2p1s0f0
+  host   : ib_send_lat -d roceP2p1s0f0 -i 1 -F -p 18526 -c RC -n 15000 --report_gbits
+  client : ib_send_lat -d roceP2p1s0f0 -i 1 -F -p 18526 -c RC -n 15000 --report_gbits 10.10.11.2
+ib_write_lat_roceP2p1s0f0
+  host   : ib_write_lat -d roceP2p1s0f0 -i 1 -F -p 18527 -c RC -n 15000 --report_gbits
+  client : ib_write_lat -d roceP2p1s0f0 -i 1 -F -p 18527 -c RC -n 15000 --report_gbits 10.10.11.2
+ib_read_lat_roceP2p1s0f0
+  host   : ib_read_lat -d roceP2p1s0f0 -i 1 -F -p 18528 -c RC -n 15000 --report_gbits
+  client : ib_read_lat -d roceP2p1s0f0 -i 1 -F -p 18528 -c RC -n 15000 --report_gbits 10.10.11.2
+ib_atomic_lat_roceP2p1s0f0
+  host   : ib_atomic_lat -d roceP2p1s0f0 -i 1 -F -p 18529 -c RC -n 15000 --report_gbits
+  client : ib_atomic_lat -d roceP2p1s0f0 -i 1 -F -p 18529 -c RC -n 15000 --report_gbits 10.10.11.2
+ib_send_bw_roceP2p1s0f0
+  host   : ib_send_bw -d roceP2p1s0f0 -i 1 -F -p 18530 -c RC -n 15000 --report_gbits
+  client : ib_send_bw -d roceP2p1s0f0 -i 1 -F -p 18530 -c RC -n 15000 --report_gbits 10.10.11.2
+ib_write_bw_roceP2p1s0f0
+  host   : ib_write_bw -d roceP2p1s0f0 -i 1 -F -p 18531 -c RC -n 15000 --report_gbits
+  client : ib_write_bw -d roceP2p1s0f0 -i 1 -F -p 18531 -c RC -n 15000 --report_gbits 10.10.11.2
+ib_read_bw_roceP2p1s0f0
+  host   : ib_read_bw -d roceP2p1s0f0 -i 1 -F -p 18532 -c RC -n 15000 --report_gbits
+  client : ib_read_bw -d roceP2p1s0f0 -i 1 -F -p 18532 -c RC -n 15000 --report_gbits 10.10.11.2
+ib_atomic_bw_roceP2p1s0f0
+  host   : ib_atomic_bw -d roceP2p1s0f0 -i 1 -F -p 18533 -c RC -n 15000 --report_gbits
+  client : ib_atomic_bw -d roceP2p1s0f0 -i 1 -F -p 18533 -c RC -n 15000 --report_gbits 10.10.11.2
+ib_send_bw_bidi_roceP2p1s0f0
+  host   : ib_send_bw -d roceP2p1s0f0 -i 1 -F -p 18534 -c RC -n 15000 --report_gbits -b
+  client : ib_send_bw -d roceP2p1s0f0 -i 1 -F -p 18534 -c RC -n 15000 --report_gbits -b 10.10.11.2
+ib_write_bw_bidi_roceP2p1s0f0
+  host   : ib_write_bw -d roceP2p1s0f0 -i 1 -F -p 18535 -c RC -n 15000 --report_gbits -b
+  client : ib_write_bw -d roceP2p1s0f0 -i 1 -F -p 18535 -c RC -n 15000 --report_gbits -b 10.10.11.2
+ib_read_bw_bidi_roceP2p1s0f0
+  host   : ib_read_bw -d roceP2p1s0f0 -i 1 -F -p 18536 -c RC -n 15000 --report_gbits -b
+  client : ib_read_bw -d roceP2p1s0f0 -i 1 -F -p 18536 -c RC -n 15000 --report_gbits -b 10.10.11.2

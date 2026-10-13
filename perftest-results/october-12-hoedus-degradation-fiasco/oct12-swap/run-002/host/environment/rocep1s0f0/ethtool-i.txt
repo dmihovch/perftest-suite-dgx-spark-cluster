@@ -1,0 +1,10 @@
+driver: mlx5_core
+version: 7.0.0-1019-nvidia
+firmware-version: 28.45.4028 (NVD0000000087)
+expansion-rom-version: 
+bus-info: 0000:01:00.0
+supports-statistics: yes
+supports-test: yes
+supports-eeprom-access: no
+supports-register-dump: no
+supports-priv-flags: yes

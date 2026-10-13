@@ -1,0 +1,15 @@
+{
+  "device": "roceP2p1s0f0",
+  "netdev": "enP2p1s0f0np0",
+  "local_ip": "10.10.11.1",
+  "peer_ip": "10.10.11.2",
+  "mtu": 4096,
+  "link_speed_mbps": 200000,
+  "autoneg": "on",
+  "link_detected": "yes",
+  "pcie_speed": "",
+  "pcie_width": "",
+  "driver": "mlx5_core",
+  "driver_version": "7.0.0-1019-nvidia",
+  "firmware_version": "28.45.4028 (NVD0000000087)"
+}

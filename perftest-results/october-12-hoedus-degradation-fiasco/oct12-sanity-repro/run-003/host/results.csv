@@ -1,0 +1,45 @@
+test,device,role,bidi,size_bytes,bw_peak_GBps,bw_avg_GBps,msg_rate_Mpps,lat_min_usec,lat_max_usec,lat_typical_usec,lat_avg_usec,lat_stdev_usec,lat_p99_usec,lat_p999_usec,error
+ib_send_lat,rocep1s0f0,host,false,2,,,,1.33,6.45,1.38,1.48,0.20,2.98,3.83,
+ib_write_lat,rocep1s0f0,host,false,2,,,,1.36,4.10,1.42,1.57,0.23,3.24,3.91,
+ib_read_lat,rocep1s0f0,host,false,,,,,,,,,,,,no parseable rows in perftest output
+ib_atomic_lat,rocep1s0f0,host,false,,,,,,,,,,,,no parseable rows in perftest output
+ib_send_bw,rocep1s0f0,host,false,65536,0.000,1.683,0.026,,,,,,,,
+ib_write_bw,rocep1s0f0,host,false,65536,1.680,1.680,0.026,,,,,,,,
+ib_read_bw,rocep1s0f0,host,false,65536,13.670,13.670,0.209,,,,,,,,
+ib_atomic_bw,rocep1s0f0,host,false,8,0.011,0.011,1.327,,,,,,,,
+ib_send_bw,rocep1s0f0,host,true,65536,15.276,15.232,0.232,,,,,,,,
+ib_write_bw,rocep1s0f0,host,true,65536,15.276,15.232,0.232,,,,,,,,
+ib_read_bw,rocep1s0f0,host,true,65536,15.439,15.380,0.235,,,,,,,,
+ib_send_lat,rocep1s0f1,host,false,2,,,,1.35,3.98,1.40,1.46,0.17,2.89,3.70,
+ib_write_lat,rocep1s0f1,host,false,2,,,,1.38,4.11,1.45,1.68,0.30,3.63,3.97,
+ib_read_lat,rocep1s0f1,host,false,,,,,,,,,,,,no parseable rows in perftest output
+ib_atomic_lat,rocep1s0f1,host,false,,,,,,,,,,,,no parseable rows in perftest output
+ib_send_bw,rocep1s0f1,host,false,65536,0.000,1.680,0.026,,,,,,,,
+ib_write_bw,rocep1s0f1,host,false,65536,1.683,1.683,0.026,,,,,,,,
+ib_read_bw,rocep1s0f1,host,false,65536,13.668,13.660,0.208,,,,,,,,
+ib_atomic_bw,rocep1s0f1,host,false,8,0.011,0.011,1.327,,,,,,,,
+ib_send_bw,rocep1s0f1,host,true,65536,15.289,15.250,0.233,,,,,,,,
+ib_write_bw,rocep1s0f1,host,true,65536,15.277,15.236,0.232,,,,,,,,
+ib_read_bw,rocep1s0f1,host,true,65536,15.469,15.408,0.235,,,,,,,,
+ib_send_lat,roceP2p1s0f0,host,false,2,,,,1.34,4.14,1.40,1.53,0.11,2.51,3.50,
+ib_write_lat,roceP2p1s0f0,host,false,2,,,,1.38,4.53,1.46,1.59,0.12,2.65,3.70,
+ib_read_lat,roceP2p1s0f0,host,false,,,,,,,,,,,,no parseable rows in perftest output
+ib_atomic_lat,roceP2p1s0f0,host,false,,,,,,,,,,,,no parseable rows in perftest output
+ib_send_bw,roceP2p1s0f0,host,false,65536,0.000,1.799,0.027,,,,,,,,
+ib_write_bw,roceP2p1s0f0,host,false,65536,1.851,1.834,0.028,,,,,,,,
+ib_read_bw,roceP2p1s0f0,host,false,65536,13.670,13.660,0.208,,,,,,,,
+ib_atomic_bw,roceP2p1s0f0,host,false,8,0.009,0.009,1.149,,,,,,,,
+ib_send_bw,roceP2p1s0f0,host,true,65536,15.409,15.357,0.234,,,,,,,,
+ib_write_bw,roceP2p1s0f0,host,true,65536,15.287,15.240,0.233,,,,,,,,
+ib_read_bw,roceP2p1s0f0,host,true,65536,15.447,15.385,0.235,,,,,,,,
+ib_send_lat,roceP2p1s0f1,host,false,2,,,,1.35,22.78,1.89,2.54,1.25,10.86,12.48,
+ib_write_lat,roceP2p1s0f1,host,false,2,,,,1.66,18.53,3.89,3.85,0.37,5.28,9.26,
+ib_read_lat,roceP2p1s0f1,host,false,,,,,,,,,,,,no parseable rows in perftest output
+ib_atomic_lat,roceP2p1s0f1,host,false,,,,,,,,,,,,no parseable rows in perftest output
+ib_send_bw,roceP2p1s0f1,host,false,65536,0.000,1.671,0.025,,,,,,,,
+ib_write_bw,roceP2p1s0f1,host,false,65536,1.876,1.857,0.028,,,,,,,,
+ib_read_bw,roceP2p1s0f1,host,false,65536,13.664,13.661,0.208,,,,,,,,
+ib_atomic_bw,roceP2p1s0f1,host,false,8,0.009,0.009,1.180,,,,,,,,
+ib_send_bw,roceP2p1s0f1,host,true,65536,15.421,15.373,0.235,,,,,,,,
+ib_write_bw,roceP2p1s0f1,host,true,65536,15.279,15.231,0.232,,,,,,,,
+ib_read_bw,roceP2p1s0f1,host,true,65536,15.426,15.366,0.234,,,,,,,,
