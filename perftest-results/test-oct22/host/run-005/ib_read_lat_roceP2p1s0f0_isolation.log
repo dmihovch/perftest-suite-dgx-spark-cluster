@@ -1,0 +1,31 @@
+# test   : ib_read_lat
+# device : roceP2p1s0f0
+# role   : host
+# local  : 10.65.0.10
+# peer   : 10.65.0.11
+# port   : 18517
+# command: ib_read_lat -d roceP2p1s0f0 --bind_source_ip 10.65.0.10 -i 1 -F -p 18517 -c RC -n 15000 --report_gbits
+# ---
+
+************************************
+* Waiting for client to connect... *
+************************************
+---------------------------------------------------------------------------------------
+                    RDMA_Read Latency Test
+ Dual-port       : OFF		Device         : roceP2p1s0f0
+ Number of qps   : 1		Transport type : IB
+ Connection type : RC		Using SRQ      : OFF
+ PCIe relax order: ON
+ ibv_wr* API     : ON
+ Mtu             : 4096[B]
+ Link type       : Ethernet
+ GID index       : 5
+ Outstand reads  : 16
+ rdma_cm QPs	 : OFF
+ Data ex. method : Ethernet
+---------------------------------------------------------------------------------------
+ local address: LID 0000 QPN 0x027b PSN 0xa08bd0 OUT 0x10 RKey 0x1a0300 VAddr 0x00b65b7a29a000
+ GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:65:00:10
+ remote address: LID 0000 QPN 0x01fb PSN 0xf5b28c OUT 0x10 RKey 0x182f00 VAddr 0x00bd08bb3af000
+ GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:65:00:11
+---------------------------------------------------------------------------------------

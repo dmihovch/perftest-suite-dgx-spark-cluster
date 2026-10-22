@@ -1,0 +1,9 @@
+{
+  "hostname": "gx10-01.hpc.udel.edu",
+  "role": "client",
+  "kernel": "6.17.0-1031-nvidia",
+  "distro": "Ubuntu 24.04.4 LTS",
+  "perftest_version": "24.01.0+0.38-1build2",
+  "rdma_core_version": "50.0-2ubuntu0.2",
+  "captured_at": "2026-10-22T18:59:26+00:00"
+}

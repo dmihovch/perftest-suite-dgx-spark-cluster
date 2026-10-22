@@ -1,0 +1,35 @@
+# test   : ib_send_bw
+# device : roceP2p1s0f0
+# role   : client
+# local  : 10.65.0.31
+# peer   : 10.65.0.30
+# port   : 18541
+# command: ib_send_bw -d roceP2p1s0f0 --bind_source_ip 10.65.0.31 -i 1 -F -p 18541 -c RC -n 15000 --report_gbits 10.65.0.30
+# ---
+Couldn't connect to 10.65.0.30:18541
+Unable to open file descriptor for socket connection
+ Unable to init the socket connection
+---------------------------------------------------------------------------------------
+                    Send BW Test
+ Dual-port       : OFF		Device         : roceP2p1s0f0
+ Number of qps   : 1		Transport type : IB
+ Connection type : RC		Using SRQ      : OFF
+ PCIe relax order: ON
+ ibv_wr* API     : ON
+ TX depth        : 128
+ CQ Moderation   : 1
+ Mtu             : 4096[B]
+ Link type       : Ethernet
+ GID index       : 5
+ Max inline data : 0[B]
+ rdma_cm QPs	 : OFF
+ Data ex. method : Ethernet
+---------------------------------------------------------------------------------------
+ local address: LID 0000 QPN 0x0288 PSN 0x81f954
+ GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:65:00:31
+ remote address: LID 0000 QPN 0x0208 PSN 0x516508
+ GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:65:00:30
+---------------------------------------------------------------------------------------
+ #bytes     #iterations    BW peak[Gb/sec]    BW average[Gb/sec]   MsgRate[Mpps]
+ 65536      15000            109.32             109.31 		   0.208500
+---------------------------------------------------------------------------------------

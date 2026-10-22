@@ -1,5 +1,10 @@
 # Pre-flight checklist
 
+This checklist records the original Diya/Hoedus two-Spark setup and also
+contains steps for the sibling LLM-serving benchmark repository. The netplan,
+hostnames, and interface examples below are topology-specific. For generic
+RDMA perftest usage, see the repository root `README.md`.
+
 This repository holds the RDMA perftest suite. Steps 1-8 configure the cluster
 network, install this repository's requirements.txt (plot dependencies), and run
 the suite. Steps 9-14 (NCCL, Ray, models, campaign) run from the sibling
@@ -113,7 +118,7 @@ cd ~/fsaii/perftest-suite-dgx-spark-cluster
 ./perftest-suite.sh client --run-name dual-200Gb-Oct-8/run-001 --modes isolation,concurrent
 ```
 
-Check `perftest-results/dual-200Gb-Oct-8/run-001/host/results.csv`. Each device's
+Check `perftest-results/dual-200Gb-Oct-8/host/run-001/results.csv`. Each device's
 isolation bandwidth should be a stable fraction of its `ibv_devinfo` link rate,
 and the concurrent aggregate should approach the sum of the isolation rates.
 `ib_write_lat` under 2 us.

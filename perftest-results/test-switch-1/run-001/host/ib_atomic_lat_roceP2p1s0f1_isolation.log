@@ -1,0 +1,8 @@
+# test   : ib_atomic_lat
+# device : roceP2p1s0f1
+# role   : host
+# local  : 10.65.0.20
+# peer   : 10.65.0.21
+# port   : 18529
+# command: ib_atomic_lat -d roceP2p1s0f1 --bind_source_ip 10.65.0.20 -i 1 -F -p 18529 -c RC -n 15000 --report_gbits
+# ---

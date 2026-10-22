@@ -1,0 +1,36 @@
+# test   : ib_write_bw (-b)
+# device : rocep1s0f1
+# role   : host
+# local  : 10.65.0.40
+# peer   : 10.65.0.41
+# port   : 18557
+# command: ib_write_bw -d rocep1s0f1 --bind_source_ip 10.65.0.40 -i 1 -F -p 18557 -c RC -n 15000 --report_gbits -b
+# ---
+
+************************************
+* Waiting for client to connect... *
+************************************
+---------------------------------------------------------------------------------------
+                    RDMA_Write Bidirectional BW Test
+ Dual-port       : OFF		Device         : rocep1s0f1
+ Number of qps   : 1		Transport type : IB
+ Connection type : RC		Using SRQ      : OFF
+ PCIe relax order: ON
+ ibv_wr* API     : ON
+ TX depth        : 128
+ CQ Moderation   : 1
+ Mtu             : 4096[B]
+ Link type       : Ethernet
+ GID index       : 5
+ Max inline data : 0[B]
+ rdma_cm QPs	 : OFF
+ Data ex. method : Ethernet
+---------------------------------------------------------------------------------------
+ local address: LID 0000 QPN 0x02f7 PSN 0x9afab2 RKey 0x1c0400 VAddr 0x00e5ea664e5000
+ GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:65:00:40
+ remote address: LID 0000 QPN 0x0377 PSN 0xe8380a RKey 0x1df000 VAddr 0x00e2dfafd7d000
+ GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:65:00:41
+---------------------------------------------------------------------------------------
+ #bytes     #iterations    BW peak[Gb/sec]    BW average[Gb/sec]   MsgRate[Mpps]
+ 65536      15000            152.55             97.28  		   0.185549
+---------------------------------------------------------------------------------------

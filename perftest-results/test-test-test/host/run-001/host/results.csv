@@ -1,0 +1,3 @@
+test,device,role,mode,bidi,size_bytes,bw_peak_GBps,bw_avg_GBps,msg_rate_Mpps,lat_min_usec,lat_max_usec,lat_typical_usec,lat_avg_usec,lat_stdev_usec,lat_p99_usec,lat_p999_usec,error
+ib_send_lat,rocep1s0f0,host,isolation,false,,,,,,,,,,,,perftest rc=124
+ib_write_lat,rocep1s0f0,host,isolation,false,,,,,,,,,,,,perftest rc=124

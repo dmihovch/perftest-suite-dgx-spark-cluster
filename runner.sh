@@ -1,18 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Runs a campaign of N perftest-suite runs, all filed under one campaign
-# directory. Start the HOST side first, then the CLIENT side, with the same
-# --campaign name on both machines; run directories are deterministic
-# (<campaign>/run-001, run-002, ...), so the two machines' directories match
-# exactly and differ only in the host/ vs client/ role subdirectory.
+# Runs repeated perftest-suite runs for one host/client pair, all filed under
+# <campaign>/<role>/run-NNN directories. Start the HOST side first, then the
+# CLIENT side, with the same --campaign name on both machines.
 #
-#   ./runner.sh 5 host --campaign cables-oct06     # on cisc-diya
-#   ./runner.sh 5 client --campaign cables-oct06   # on cisc-hoedus
+#   ./runner.sh 5 host --campaign spark-a-to-spark-b --config spark-a.json
+#   ./runner.sh 5 client --campaign spark-a-to-spark-b --config spark-b.json
 #
-# Pass --peer-host (or --peer-ips, or the PEER_HOST / PEER_IPS env vars) so the
-# campaign works on any addressing scheme; see perftest-suite.sh. The campaign
-# stops on the first failed run.
+# Pass --config for a machine-specific JSON topology file and --peer when the
+# file defines multiple peers. The campaign stops on the first failed run.
 
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly SUITE_SCRIPT="$SCRIPT_DIR/perftest-suite.sh"
@@ -23,11 +20,12 @@ readonly RUN_INDEX_WIDTH=3
 readonly SUITE_MODES="isolation,concurrent"
 
 usage() {
-  echo "usage: $0 <iterations> {host|client} [--campaign <name>] [--peer-ips <csv> | --peer-host <hostname>]" >&2
+  echo "usage: $0 <iterations> {host|client} [--campaign <name>] [--config <file> [--peer <name>] | --peer-map <device=ip,...> | --peer-ips <csv> | --peer-host <hostname>]" >&2
   echo "  --campaign: subdirectory under perftest-results/ holding every run of" >&2
   echo "              this campaign. Must be identical on both machines." >&2
-  echo "  --peer-ips / --peer-host: peer addresses or hostname, forwarded to the" >&2
-  echo "              suite (see perftest-suite.sh); give one of the two" >&2
+  echo "  results: perftest-results/<campaign>/{host,client}/run-NNN/" >&2
+  echo "  --config: per-machine JSON topology file; --peer selects a peer profile" >&2
+  echo "  --peer-map / --peer-ips / --peer-host: direct peer selection options" >&2
 }
 
 iterations=""
@@ -35,6 +33,9 @@ role=""
 campaign=""
 peer_ips=""
 peer_host=""
+peer_map=""
+peer_config=""
+peer_name=""
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --campaign)
@@ -47,9 +48,26 @@ while [ "$#" -gt 0 ]; do
       peer_ips="$2"
       shift
       ;;
+    --peer-map)
+      [ "$#" -ge 2 ] || { usage; exit 2; }
+      peer_map="$2"
+      shift
+      ;;
     --peer-host)
       [ "$#" -ge 2 ] || { usage; exit 2; }
       peer_host="$2"
+      shift
+      ;;
+    --config)
+      [ "$#" -ge 2 ] || { usage; exit 2; }
+      [ -n "$2" ] || { echo "error: --config requires a non-empty file path" >&2; exit 2; }
+      peer_config="$2"
+      shift
+      ;;
+    --peer)
+      [ "$#" -ge 2 ] || { usage; exit 2; }
+      [ -n "$2" ] || { echo "error: --peer requires a non-empty peer name" >&2; exit 2; }
+      peer_name="$2"
       shift
       ;;
     *)
@@ -68,6 +86,14 @@ done
 
 if [ -z "$iterations" ] || [ -z "$role" ]; then
   usage
+  exit 2
+fi
+
+if [ -n "$peer_config" ]; then
+  [ -z "$peer_ips" ] && [ -z "$peer_map" ] && [ -z "$peer_host" ] \
+    || { echo "error: --config cannot be combined with direct peer options" >&2; exit 2; }
+elif [ -n "$peer_name" ]; then
+  echo "error: --peer requires --config" >&2
   exit 2
 fi
 
@@ -94,8 +120,17 @@ for ((run_index = 1; run_index <= iteration_count; run_index++)); do
   echo
   echo "== campaign '$campaign' run $run_index/$iteration_count ($role) =="
   suite_arguments=("$role" --run-name "$run_name" --modes "$SUITE_MODES")
+  if [ -n "$peer_config" ]; then
+    suite_arguments+=(--config "$peer_config")
+  fi
+  if [ -n "$peer_name" ]; then
+    suite_arguments+=(--peer "$peer_name")
+  fi
   if [ -n "$peer_ips" ]; then
     suite_arguments+=(--peer-ips "$peer_ips")
+  fi
+  if [ -n "$peer_map" ]; then
+    suite_arguments+=(--peer-map "$peer_map")
   fi
   if [ -n "$peer_host" ]; then
     suite_arguments+=(--peer-host "$peer_host")

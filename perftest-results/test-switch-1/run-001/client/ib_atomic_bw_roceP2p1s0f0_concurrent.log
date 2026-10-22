@@ -1,0 +1,20 @@
+# test   : ib_atomic_bw
+# device : roceP2p1s0f0
+# role   : client
+# local  : 10.65.0.31
+# peer   : 10.65.0.30
+# port   : 18544
+# command: ib_atomic_bw -d roceP2p1s0f0 --bind_source_ip 10.65.0.31 -i 1 -F -p 18544 -c RC -n 15000 --report_gbits 10.65.0.30
+# ---
+Couldn't connect to 10.65.0.30:18544
+Unable to open file descriptor for socket connection
+ Unable to init the socket connection
+Couldn't connect to 10.65.0.30:18544
+Unable to open file descriptor for socket connection
+ Unable to init the socket connection
+Couldn't connect to 10.65.0.30:18544
+Unable to open file descriptor for socket connection
+ Unable to init the socket connection
+Couldn't connect to 10.65.0.30:18544
+Unable to open file descriptor for socket connection
+ Unable to init the socket connection

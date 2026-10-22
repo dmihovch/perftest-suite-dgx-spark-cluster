@@ -1,0 +1,15 @@
+# test   : ib_read_bw
+# device : rocep1s0f0
+# port   : 18521
+# host   : ib_read_bw -d rocep1s0f0 --bind_source_ip 10.65.0.11 -i 1 -F -p 18521 -c RC -n 15000 --report_gbits
+# client : ib_read_bw -d rocep1s0f0 --bind_source_ip 10.65.0.11 -i 1 -F -p 18521 -c RC -n 15000 --report_gbits 10.65.0.10
+# ---
+Couldn't connect to 10.65.0.10:18521
+Unable to open file descriptor for socket connection
+ Unable to init the socket connection
+Couldn't connect to 10.65.0.10:18521
+Unable to open file descriptor for socket connection
+ Unable to init the socket connection
+Couldn't connect to 10.65.0.10:18521
+Unable to open file descriptor for socket connection
+ Unable to init the socket connection

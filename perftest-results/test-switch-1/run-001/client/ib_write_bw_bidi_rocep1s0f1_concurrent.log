@@ -1,0 +1,20 @@
+# test   : ib_write_bw (-b)
+# device : rocep1s0f1
+# role   : client
+# local  : 10.65.0.21
+# peer   : 10.65.0.20
+# port   : 18535
+# command: ib_write_bw -d rocep1s0f1 --bind_source_ip 10.65.0.21 -i 1 -F -p 18535 -c RC -n 15000 --report_gbits -b 10.65.0.20
+# ---
+Couldn't connect to 10.65.0.20:18535
+Unable to open file descriptor for socket connection
+ Unable to init the socket connection
+Couldn't connect to 10.65.0.20:18535
+Unable to open file descriptor for socket connection
+ Unable to init the socket connection
+Couldn't connect to 10.65.0.20:18535
+Unable to open file descriptor for socket connection
+ Unable to init the socket connection
+Couldn't connect to 10.65.0.20:18535
+Unable to open file descriptor for socket connection
+ Unable to init the socket connection

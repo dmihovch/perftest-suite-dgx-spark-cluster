@@ -1,0 +1,6 @@
+# test   : ib_read_lat
+# device : rocep1s0f0
+# port   : 18528
+# host   : ib_read_lat -d rocep1s0f0 --bind_source_ip 10.65.0.30 -i 1 -F -p 18528 -c RC -n 15000 --report_gbits
+# client : ib_read_lat -d rocep1s0f0 --bind_source_ip 10.65.0.30 -i 1 -F -p 18528 -c RC -n 15000 --report_gbits 10.65.0.11
+# ---

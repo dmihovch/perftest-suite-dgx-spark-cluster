@@ -1,0 +1,37 @@
+# test   : ib_send_bw (-b)
+# device : roceP2p1s0f0
+# role   : host
+# local  : 10.65.0.10
+# peer   : 10.65.0.11
+# port   : 18523
+# command: ib_send_bw -d roceP2p1s0f0 --bind_source_ip 10.65.0.10 -i 1 -F -p 18523 -c RC -n 15000 --report_gbits -b
+# ---
+
+************************************
+* Waiting for client to connect... *
+************************************
+---------------------------------------------------------------------------------------
+                    Send Bidirectional BW Test
+ Dual-port       : OFF		Device         : roceP2p1s0f0
+ Number of qps   : 1		Transport type : IB
+ Connection type : RC		Using SRQ      : OFF
+ PCIe relax order: ON
+ ibv_wr* API     : ON
+ TX depth        : 128
+ RX depth        : 512
+ CQ Moderation   : 1
+ Mtu             : 4096[B]
+ Link type       : Ethernet
+ GID index       : 5
+ Max inline data : 0[B]
+ rdma_cm QPs	 : OFF
+ Data ex. method : Ethernet
+---------------------------------------------------------------------------------------
+ local address: LID 0000 QPN 0x0255 PSN 0x7068b3
+ GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:65:00:10
+ remote address: LID 0000 QPN 0x01d5 PSN 0xbd205e
+ GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:65:00:11
+---------------------------------------------------------------------------------------
+ #bytes     #iterations    BW peak[Gb/sec]    BW average[Gb/sec]   MsgRate[Mpps]
+ 65536      15000            213.88             213.80 		   0.407798
+---------------------------------------------------------------------------------------

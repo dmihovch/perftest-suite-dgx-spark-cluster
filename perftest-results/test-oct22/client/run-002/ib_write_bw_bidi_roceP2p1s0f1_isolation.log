@@ -1,0 +1,35 @@
+# test   : ib_write_bw (-b)
+# device : roceP2p1s0f1
+# role   : client
+# local  : 10.65.0.41
+# peer   : 10.65.0.40
+# port   : 18557
+# command: ib_write_bw -d roceP2p1s0f1 --bind_source_ip 10.65.0.41 -i 1 -F -p 18557 -c RC -n 15000 --report_gbits -b 10.65.0.40
+# ---
+Couldn't connect to 10.65.0.40:18557
+Unable to open file descriptor for socket connection
+ Unable to init the socket connection
+---------------------------------------------------------------------------------------
+                    RDMA_Write Bidirectional BW Test
+ Dual-port       : OFF		Device         : roceP2p1s0f1
+ Number of qps   : 1		Transport type : IB
+ Connection type : RC		Using SRQ      : OFF
+ PCIe relax order: ON
+ ibv_wr* API     : ON
+ TX depth        : 128
+ CQ Moderation   : 1
+ Mtu             : 4096[B]
+ Link type       : Ethernet
+ GID index       : 5
+ Max inline data : 0[B]
+ rdma_cm QPs	 : OFF
+ Data ex. method : Ethernet
+---------------------------------------------------------------------------------------
+ local address: LID 0000 QPN 0x0340 PSN 0x4a9a21 RKey 0x1df100 VAddr 0x00f09dc3f1d000
+ GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:65:00:41
+ remote address: LID 0000 QPN 0x02c0 PSN 0x5f3a5a RKey 0x1c0400 VAddr 0x00f0e19169d000
+ GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:65:00:40
+---------------------------------------------------------------------------------------
+ #bytes     #iterations    BW peak[Gb/sec]    BW average[Gb/sec]   MsgRate[Mpps]
+ 65536      15000            213.42             213.36 		   0.406947
+---------------------------------------------------------------------------------------

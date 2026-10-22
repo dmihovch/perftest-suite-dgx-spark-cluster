@@ -1,0 +1,17 @@
+# test   : ib_write_lat
+# device : rocep1s0f0
+# role   : client
+# local  : 10.65.0.11
+# peer   : 10.65.0.10
+# port   : 18516
+# command: ib_write_lat -d rocep1s0f0 --bind_source_ip 10.65.0.11 -i 1 -F -p 18516 -c RC -n 15000 --report_gbits 10.65.0.10
+# ---
+Couldn't connect to 10.65.0.10:18516
+Unable to open file descriptor for socket connection
+ Unable to init the socket connection
+Couldn't connect to 10.65.0.10:18516
+Unable to open file descriptor for socket connection
+ Unable to init the socket connection
+Couldn't connect to 10.65.0.10:18516
+Unable to open file descriptor for socket connection
+ Unable to init the socket connection

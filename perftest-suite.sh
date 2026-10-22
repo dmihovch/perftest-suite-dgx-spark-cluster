@@ -2,37 +2,30 @@
 set -uo pipefail
 
 # ---------------------------------------------------------------------------
-# perftest-suite.sh - RDMA perftest matrix for two DGX Sparks joined by one or
-# more QSFP cables. Each physical QSFP port carries 2 logical RDMA devices.
-# Every RDMA device that is UP with an IPv4 address is tested.
+# perftest-suite.sh - pairwise RDMA perftest matrix for DGX Spark systems. Every
+# RDMA device that is UP with an IPv4 address is tested.
 #
-#   ./perftest-suite.sh host --run-name <campaign>/run-001
-#   ./perftest-suite.sh client --run-name <campaign>/run-001
+#   ./perftest-suite.sh host --config spark-a.json --peer spark-b --run-name <campaign>/run-001
+#   ./perftest-suite.sh client --config spark-b.json --peer spark-a --run-name <campaign>/run-001
 #
-#   --run-name <name>  relative path under the results root; pass the SAME
-#                      value on both machines so the two sides land in
-#                      matching host/ and client/ subdirectories
+#   --run-name <campaign>/<run-id>  shared identifier; pass the SAME value on
+#                      both machines to store results under matching role dirs
 #   --notes <file>     copy a free-form notes sheet into the run directory
 #
-# The peer's addresses come from --peer-ips (explicit list) or --peer-host
-# (a hostname, resolved via /etc/hosts or DNS), matched to the local devices by
-# subnet, so any IP scheme works. Without either, the peer IP is derived by
-# flipping the last octet odd<->even (the cisc-diya/cisc-hoedus netplan
-# convention); see assign_peer_ips below. Devices are discovered at runtime, so
-# any RDMA device that is UP with an IPv4 address is tested.
+# The peer's addresses come from --config (a machine-specific JSON file),
+# --peer-map (explicit per-device map),
+# --peer-ips (addresses matched to local devices by subnet), or --peer-host
+# (a hostname resolved through /etc/hosts or DNS). Devices are discovered at
+# runtime, so any RDMA device that is UP with an IPv4 address is tested.
 #
-#
-# USB-C USB-C USB-C USB-C HDMI ETHERNET CONNECTX-7 CONNECTX-7
-#                                       ^^^^
-#                                       THIS PORT!
 #
 #
 #
 # Output per run (see README.md for the full schema):
 #
-#   <results-root>/<run-name>/<role>/
+#   <results-root>/<campaign>/<role>/<run-id>/
 #     environment/                  hardware and link-state capture
-#     commands.txt                  every test's host and client command
+#     commands.txt                  exact command and peer endpoint for this role
 #     results.csv                   parsed perftest tables, GB/s and usec
 #     <test>[_bidi]_<device>.log    raw perftest output, never discarded
 #     notes.<name>                  the --notes file, if one was given
@@ -60,10 +53,10 @@ readonly TEST_TIMEOUT_DEFAULT=120
 readonly ISOLATION_MODE="isolation"
 readonly CONCURRENT_MODE="concurrent"
 readonly MODES_DEFAULT="$ISOLATION_MODE,$CONCURRENT_MODE"
-# Run names are relative paths whose segments must start with an alphanumeric
-# character and contain only [A-Za-z0-9._-]. This rejects absolute paths, '..'
-# traversal, and spaces, so --run-name can never write outside the results root.
-readonly RUN_NAME_PATTERN='^[A-Za-z0-9][A-Za-z0-9._-]*(/[A-Za-z0-9][A-Za-z0-9._-]*)*$'
+# Pair run identifiers are <campaign>/run-NNN. Campaign segments start with
+# an alphanumeric character and contain only [A-Za-z0-9._-], preventing
+# absolute paths, '..' traversal, and spaces.
+readonly RUN_NAME_PATTERN='^[A-Za-z0-9][A-Za-z0-9._-]*(/[A-Za-z0-9][A-Za-z0-9._-]*)*/run-[0-9]+$'
 # perftest --report_gbits prints decimal Gbit/s; GB/s = Gbit/s / 8.
 readonly GBITS_PER_GBYTE=8
 
@@ -74,29 +67,17 @@ readonly BANDWIDTH_BIDI_TESTS=(ib_send_bw ib_write_bw ib_read_bw)
 readonly CSV_HEADER="test,device,role,mode,bidi,size_bytes,bw_peak_GBps,bw_avg_GBps,msg_rate_Mpps,lat_min_usec,lat_max_usec,lat_typical_usec,lat_avg_usec,lat_stdev_usec,lat_p99_usec,lat_p999_usec,error"
 
 usage() {
-  echo "usage: $0 {host|client} [--run-name <name>] [--notes <file>] [--modes <list>] [--peer-ips <csv> | --peer-host <hostname>]" >&2
+  echo "usage: $0 {host|client} [--run-name <name>] [--notes <file>] [--modes <list>] [--config <file> [--peer <name>] | --peer-map <device=ip,...> | --peer-ips <csv> | --peer-host <hostname>]" >&2
   echo "  --modes: comma-separated subset of $ISOLATION_MODE,$CONCURRENT_MODE (default $MODES_DEFAULT)" >&2
-  echo "  --peer-ips: comma-separated peer addresses, one per discovered device; matched by subnet" >&2
-  echo "  --peer-host: peer hostname, resolved via /etc/hosts or DNS; give one of --peer-ips/--peer-host" >&2
+  echo "  --config: JSON file for this machine; --peer selects a peer profile (omittable when there is one peer)" >&2
+  echo "  --peer-map: comma-separated local RDMA device=peer IPv4 address pairs; use for shared-subnet or routed fabrics" >&2
+  echo "  --peer-ips: comma-separated peer addresses, matched to local devices by subnet" >&2
+  echo "  --peer-host: peer hostname, resolved via /etc/hosts or DNS" >&2
 }
 
 fail() {
   echo "error: $*" >&2
   exit 1
-}
-
-# Print the peer IP for a local IP by flipping the last octet odd<->even.
-# Matches the netplan scheme (diya = odd, hoedus = even, same /24). This is a
-# convention, not an invariant: if the addressing changes, update this rule.
-derive_peer_ip() {
-  local address="$1"
-  local prefix="${address%.*}"
-  local last_octet="${address##*.}"
-  if (( last_octet % 2 == 1 )); then
-    echo "$prefix.$((last_octet + 1))"
-  else
-    echo "$prefix.$((last_octet - 1))"
-  fi
 }
 
 # True when the argument is a dotted-quad IPv4 address with octets in 0..255.
@@ -112,7 +93,7 @@ is_valid_ipv4() {
 ipv4_to_int() {
   local address="$1" octet1 octet2 octet3 octet4
   IFS='.' read -r octet1 octet2 octet3 octet4 <<< "$address"
-  echo $(( (octet1 << 24) + (octet2 << 16) + (octet3 << 8) + octet4 ))
+  echo $(( (10#$octet1 << 24) + (10#$octet2 << 16) + (10#$octet3 << 8) + 10#$octet4 ))
 }
 
 # Print the network prefix of address/prefix as a 32-bit integer.
@@ -148,20 +129,108 @@ resolve_peer_host() {
       done
 }
 
-# Fill peer_ips[]: --peer-ips / PEER_IPS gives the peer's addresses, or
-# --peer-host / PEER_HOST names the peer machine and its addresses are resolved
-# from /etc/hosts or DNS. Addresses are matched to the local devices by subnet
-# so their order does not matter. Without either, fall back to the odd/even
-# last-octet convention (cisc-diya/cisc-hoedus netplan). A hostname may resolve
-# to more addresses than there are devices (management IPs, ...), so the exact
-# count check applies to --peer-ips only; the subnet match is the guard.
+# Load the selected peer profile from a machine-specific JSON topology file.
+load_peer_config() {
+  local -a configured_peers=()
+  local configured_peer
+
+  command -v jq >/dev/null 2>&1 || fail "--config requires jq"
+  [ -f "$peer_config_file" ] && [ -r "$peer_config_file" ] \
+    || fail "peer config is not a readable file: $peer_config_file"
+  jq -e -s '
+    length == 1 and
+    (.[0] |
+      type == "object" and
+      .schema_version == 1 and
+      (.node | type == "string" and length > 0) and
+      (.peers | type == "object" and length > 0) and
+      all(.peers | to_entries[];
+        (.key | type == "string" and length > 0) and
+        (.value | type == "object" and length > 0 and
+          all(to_entries[];
+            (.key | test("^[A-Za-z0-9_.:-]+$")) and
+            (.value | type == "string" and test("^[0-9]{1,3}(\\.[0-9]{1,3}){3}$"))))
+      )
+    )
+  ' "$peer_config_file" >/dev/null 2>&1 \
+    || fail "invalid peer config '$peer_config_file'; expected schema_version, node, and peer device-to-IPv4 maps"
+
+  config_node=$(jq -r '.node' "$peer_config_file")
+  while IFS= read -r configured_peer; do
+    configured_peers+=("$configured_peer")
+  done < <(jq -r '.peers | keys[]' "$peer_config_file")
+
+  if [ -z "$peer_name" ]; then
+    [ "${#configured_peers[@]}" -eq 1 ] \
+      || fail "peer config contains ${#configured_peers[@]} peers; select one with --peer"
+    peer_name="${configured_peers[0]}"
+  elif ! jq -e --arg peer "$peer_name" '.peers | has($peer)' "$peer_config_file" >/dev/null; then
+    fail "peer '$peer_name' is not defined in '$peer_config_file'"
+  fi
+  [ "$peer_name" != "$config_node" ] || fail "peer '$peer_name' is the local node in '$peer_config_file'"
+
+  peer_map_csv=$(jq -r --arg peer "$peer_name" \
+    '.peers[$peer] | to_entries | map(.key + "=" + .value) | join(",")' \
+    "$peer_config_file")
+  [ -n "$peer_map_csv" ] || fail "peer '$peer_name' has no device mappings in '$peer_config_file'"
+}
+
+# Fill peer_ips[] from an explicit device map, subnet-matched addresses, or a
+# resolved peer hostname. A device map is required when several local devices
+# share a subnet or peer addresses are reachable through routed paths.
 assign_peer_ips() {
   peer_ips=()
   local -a given_peers=()
-  local peer_ip index match resolved
+  local -a mapped_devices=()
+  local -a mapped_ips=()
+  local peer_ip index match resolved entry mapped_device mapped_ip known_device previous_index
 
-  if [ -n "$peer_ips_csv" ] && [ -n "$peer_host" ]; then
-    fail "give either --peer-ips or --peer-host, not both"
+  local peer_source_count=0
+  [ -n "$peer_map_csv" ] && ((peer_source_count += 1))
+  [ -n "$peer_ips_csv" ] && ((peer_source_count += 1))
+  [ -n "$peer_host" ] && ((peer_source_count += 1))
+  if [ "$peer_source_count" -gt 1 ]; then
+    fail "give only one of --peer-map, --peer-ips, or --peer-host"
+  fi
+
+  if [ -n "$peer_map_csv" ]; then
+    IFS=',' read -r -a given_peers <<< "$peer_map_csv"
+    if [ "${#given_peers[@]}" -ne "${#devices[@]}" ]; then
+      fail "PEER_MAP has ${#given_peers[@]} mapping(s) but ${#devices[@]} device(s) were discovered"
+    fi
+    for entry in "${given_peers[@]}"; do
+      [[ "$entry" == *=* ]] || fail "invalid peer mapping '$entry'; expected local-device=peer-ip"
+      mapped_device="${entry%%=*}"
+      mapped_ip="${entry#*=}"
+      [ -n "$mapped_device" ] || fail "invalid peer mapping '$entry': local device is empty"
+      is_valid_ipv4 "$mapped_ip" || fail "invalid peer IP '$mapped_ip' in --peer-map/PEER_MAP"
+      known_device=0
+      for index in "${!devices[@]}"; do
+        if [ "${devices[$index]}" = "$mapped_device" ]; then
+          known_device=1
+          break
+        fi
+      done
+      [ "$known_device" -eq 1 ] || fail "unknown local RDMA device '$mapped_device' in --peer-map/PEER_MAP"
+      for previous_index in "${!mapped_devices[@]}"; do
+        [ "${mapped_devices[$previous_index]}" != "$mapped_device" ] \
+          || fail "duplicate local RDMA device '$mapped_device' in --peer-map/PEER_MAP"
+      done
+      mapped_devices+=("$mapped_device")
+      mapped_ips+=("$mapped_ip")
+    done
+    for index in "${!devices[@]}"; do
+      match=""
+      for previous_index in "${!mapped_devices[@]}"; do
+        if [ "${mapped_devices[$previous_index]}" = "${devices[$index]}" ]; then
+          match="${mapped_ips[$previous_index]}"
+          break
+        fi
+      done
+      [ -n "$match" ] || fail "no peer mapping for local RDMA device '${devices[$index]}'"
+      peer_ips+=("$match")
+    done
+    return
   fi
 
   if [ -n "$peer_ips_csv" ]; then
@@ -174,20 +243,16 @@ assign_peer_ips() {
     done
   elif [ -n "$peer_host" ]; then
     if ! command -v getent >/dev/null 2>&1; then
-      fail "--peer-host requires getent (glibc); use --peer-ips instead"
+      fail "--peer-host requires getent (glibc); use --peer-ips or --peer-map instead"
     fi
     while read -r resolved; do
       given_peers+=("$resolved")
     done < <(resolve_peer_host "$peer_host")
     if [ "${#given_peers[@]}" -eq 0 ]; then
-      fail "no IPv4 address found for peer host '$peer_host'; add it to /etc/hosts or DNS, or use --peer-ips"
+      fail "no IPv4 address found for peer host '$peer_host'; add it to /etc/hosts or DNS, or use --peer-ips/--peer-map"
     fi
   else
-    for index in "${!local_ips[@]}"; do
-      peer_ips+=("$(derive_peer_ip "${local_ips[$index]}")")
-    done
-    echo "warning: no --peer-ips/--peer-host given; derived peer IPs by the odd/even last-octet convention" >&2
-    return
+    fail "specify --peer-map, --peer-ips, or --peer-host; peer addresses are never inferred"
   fi
 
   for index in "${!devices[@]}"; do
@@ -195,7 +260,7 @@ assign_peer_ips() {
     for peer_ip in "${given_peers[@]}"; do
       if ipv4_in_subnet "$peer_ip" "${local_ips[$index]}" "${local_prefixes[$index]}"; then
         if [ -n "$match" ]; then
-          fail "multiple peer addresses on the same subnet as ${local_ips[$index]}: $match and $peer_ip"
+          fail "multiple peer addresses on the same subnet as ${local_ips[$index]}: $match and $peer_ip; use --peer-map to select one address per RDMA device"
         fi
         match="$peer_ip"
       fi
@@ -204,6 +269,56 @@ assign_peer_ips() {
       fail "no peer address on the same subnet as ${local_ips[$index]}/${local_prefixes[$index]} (peer addresses: ${given_peers[*]})"
     fi
     peer_ips+=("$match")
+  done
+}
+
+# Give both roles the same port slots for matching interface IP pairs, even if
+# their RDMA device names or discovery order differ.
+assign_port_indices() {
+  port_indices=()
+  local -a link_keys=()
+  local -a sorted_link_keys=()
+  local device_index local_ip_number peer_ip_number link_key previous_index sorted_index
+
+  for device_index in "${!devices[@]}"; do
+    for previous_index in "${!peer_ips[@]}"; do
+      if (( previous_index < device_index )) && [ "${peer_ips[$previous_index]}" = "${peer_ips[$device_index]}" ]; then
+        fail "peer IP '${peer_ips[$device_index]}' is mapped to multiple local devices; map each device to a distinct peer interface IP"
+      fi
+    done
+    local_ip_number=$(ipv4_to_int "${local_ips[$device_index]}")
+    peer_ip_number=$(ipv4_to_int "${peer_ips[$device_index]}")
+    (( local_ip_number != peer_ip_number )) \
+      || fail "local and peer IPs are identical for device '${devices[$device_index]}'"
+    if (( local_ip_number < peer_ip_number )); then
+      link_keys+=("$local_ip_number|$peer_ip_number")
+    else
+      link_keys+=("$peer_ip_number|$local_ip_number")
+    fi
+  done
+
+  while IFS= read -r link_key; do
+    sorted_link_keys+=("$link_key")
+  done < <(printf '%s\n' "${link_keys[@]}" | LC_ALL=C sort)
+
+  for ((device_index = 1; device_index < ${#sorted_link_keys[@]}; device_index++)); do
+    [ "${sorted_link_keys[$device_index]}" != "${sorted_link_keys[$((device_index - 1))]}" ] \
+      || fail "multiple RDMA devices resolve to the same local/peer IP pair; use unique interface IPs"
+  done
+
+  for link_key in "${link_keys[@]}"; do
+    for sorted_index in "${!sorted_link_keys[@]}"; do
+      if [ "${sorted_link_keys[$sorted_index]}" = "$link_key" ]; then
+        port_indices+=("$sorted_index")
+        break
+      fi
+    done
+  done
+
+  # Keep sequential tests in the same link-pair order on both systems.
+  ordered_device_indices=()
+  for device_index in "${!devices[@]}"; do
+    ordered_device_indices[${port_indices[$device_index]}]="$device_index"
   done
 }
 
@@ -282,7 +397,7 @@ should_skip_read_test() {
 }
 
 # Build the ordered test list as "binary|extra_flag" entries. The order is fixed
-# so both roles allocate the same port to the same (device, test) pair.
+# so both roles allocate the same port to each test on a paired interface.
 build_test_matrix() {
   test_matrix=()
   local test
@@ -307,12 +422,17 @@ preflight() {
     command -v "$binary" >/dev/null 2>&1 || missing="$missing $binary"
   done
   local tool
-  for tool in ip jq ss timeout; do
+  for tool in ip jq ss timeout column; do
     command -v "$tool" >/dev/null 2>&1 || missing="$missing $tool"
   done
   if [ -n "$missing" ]; then
     fail "missing required tools:$missing"
   fi
+
+  local perftest_help
+  perftest_help=$(ib_send_bw --help 2>&1 || true)
+  [[ "$perftest_help" == *"--bind_source_ip"* ]] \
+    || fail "installed perftest does not support --bind_source_ip; install a build that supports source-IP binding"
 
   # Optional: their absence degrades the environment capture, not the tests.
   for tool in ethtool lspci ibv_devinfo; do
@@ -326,6 +446,9 @@ preflight() {
   done
 
   local port_count=$(( ${#devices[@]} * tests_per_device ))
+  local last_port=$(( base_port + port_count - 1 ))
+  [ "$last_port" -le 65535 ] \
+    || fail "BASE_PORT $base_port plus $port_count test ports exceeds 65535"
   local port
   for (( port = base_port; port < base_port + port_count; port++ )); do
     if ss -ltn 2>/dev/null | grep -q ":$port "; then
@@ -568,11 +691,10 @@ append_error_row() {
   printf '%s\n' "$row" >> "$csv_file"
 }
 
-# Build the perftest argv and the recorded command strings for one test. Sets
-# test_base_arguments (argv without the peer address), test_host_command, and
-# test_client_command.
+# Build the perftest argv and recorded command for this role. The selected local
+# address keeps connection setup on the interface being tested.
 build_test_commands() {
-  local binary="$1" extra_flag="$2" device="$3" server_ip="$4" port="$5"
+  local binary="$1" extra_flag="$2" device="$3" local_ip="$4" peer_ip="$5" port="$6"
 
   local iterations
   if [[ "$binary" == *_lat ]]; then
@@ -581,43 +703,43 @@ build_test_commands() {
     iterations="$bandwidth_iterations"
   fi
 
-  local -a base_arguments=(-d "$device" -i 1 -F -p "$port" -c "$connection_type" -n "$iterations" --report_gbits)
+  local -a base_arguments=(-d "$device" --bind_source_ip "$local_ip" -i 1 -F -p "$port" -c "$connection_type" -n "$iterations" --report_gbits)
   if [ -n "$extra_flag" ]; then
     base_arguments+=("$extra_flag")
   fi
 
   test_base_arguments=("${base_arguments[@]}")
-  test_host_command="$binary ${base_arguments[*]}"
-  test_client_command="$binary ${base_arguments[*]} $server_ip"
+  test_local_command="$binary ${base_arguments[*]}"
+  [ "$role" = client ] && test_local_command+=" $peer_ip"
 }
 
 # Launch one perftest process in the background, writing its log header first.
 # Sets test_pid. The timeout bounds a process whose peer never connects, so a
 # failed client cannot stall the campaign.
 start_test_process() {
-  local binary="$1" extra_flag="$2" device="$3" server_ip="$4" port="$5" mode="$6"
+  local binary="$1" extra_flag="$2" device="$3" local_ip="$4" server_ip="$5" port="$6" mode="$7"
 
-  build_test_commands "$binary" "$extra_flag" "$device" "$server_ip" "$port"
+  build_test_commands "$binary" "$extra_flag" "$device" "$local_ip" "$server_ip" "$port"
 
   local tag="${binary}${extra_flag:+_bidi}_${device}_${mode}"
   local log_file="$out_dir/$tag.log"
-  local local_command="$test_host_command"
-  [ "$role" = client ] && local_command="$test_client_command"
 
-  # Header makes the log self-describing and records both sides' commands. It is
-  # written once; a retry appends to the same log.
+  # Header records the command for this local role. The peer may use a different
+  # RDMA device name, so its exact command is recorded by the peer's run.
   if [ ! -f "$log_file" ]; then
     {
       echo "# test   : ${binary}${extra_flag:+ ($extra_flag)}"
       echo "# device : $device"
+      echo "# role   : $role"
+      echo "# local  : $local_ip"
+      echo "# peer   : $server_ip"
       echo "# port   : $port"
-      echo "# host   : $test_host_command"
-      echo "# client : $test_client_command"
+      echo "# command: $test_local_command"
       echo "# ---"
     } > "$log_file" || fail "cannot write $log_file"
   fi
 
-  echo ">>> [$role] $local_command"
+  echo ">>> [$role] $test_local_command"
 
   local -a local_arguments=("${test_base_arguments[@]}")
   [ "$role" = client ] && local_arguments+=("$server_ip")
@@ -634,9 +756,9 @@ wait_test_process() {
 
 # Record a finished test: parse its log into the CSV, or write an error row.
 record_test_result() {
-  local binary="$1" extra_flag="$2" device="$3" server_ip="$4" port="$5" mode="$6"
+  local binary="$1" extra_flag="$2" device="$3" local_ip="$4" server_ip="$5" port="$6" mode="$7"
 
-  build_test_commands "$binary" "$extra_flag" "$device" "$server_ip" "$port"
+  build_test_commands "$binary" "$extra_flag" "$device" "$local_ip" "$server_ip" "$port"
 
   local tag="${binary}${extra_flag:+_bidi}_${device}_${mode}"
   local log_file="$out_dir/$tag.log"
@@ -652,42 +774,51 @@ record_test_result() {
   if [ "$test_exit_code" -ne 0 ]; then
     echo "!! $tag failed rc=$test_exit_code" >&2
     append_error_row "$binary" "$device" "$mode" "$bidi" "perftest rc=$test_exit_code"
+    failed_test_count=$((failed_test_count + 1))
   else
     parse_perftest_log "$log_file" "$kind" "$binary" "$device" "$mode" "$bidi" > "$parse_tmp_file"
     if [ -s "$parse_tmp_file" ]; then
       cat "$parse_tmp_file" >> "$csv_file"
       rm -f "$parse_tmp_file"
+    elif [ "$role" = "host" ] \
+        && [[ "$binary" == "ib_read_lat" || "$binary" == "ib_atomic_lat" ]]; then
+      # These server processes succeed without emitting the client table.
+      rm -f "$parse_tmp_file"
     else
       echo "!! $tag produced no parseable rows" >&2
       append_error_row "$binary" "$device" "$mode" "$bidi" "no parseable rows in perftest output"
+      failed_test_count=$((failed_test_count + 1))
       rm -f "$parse_tmp_file"
     fi
   fi
 
   {
     echo "$tag"
-    echo "  host   : $test_host_command"
-    echo "  client : $test_client_command"
+    echo "  role   : $role"
+    echo "  local  : $local_ip"
+    echo "  peer   : $server_ip"
+    echo "  command: $test_local_command"
   } >> "$commands_file"
 }
 
 # One device at a time, retrying a failed test. This is the isolation pass: it
 # measures each device's own ceiling with no contention.
 run_isolation_pass() {
-  local device_index device server_ip test_index binary extra_flag port attempt
-  for device_index in "${!devices[@]}"; do
+  local device_index device local_ip server_ip test_index binary extra_flag port attempt
+  for device_index in "${ordered_device_indices[@]}"; do
     device="${devices[$device_index]}"
+    local_ip="${local_ips[$device_index]}"
     server_ip="${peer_ips[$device_index]}"
     for test_index in "${!test_matrix[@]}"; do
       IFS='|' read -r binary extra_flag <<< "${test_matrix[$test_index]}"
-      port=$(( base_port + device_index * tests_per_device + test_index ))
+      port=$(( base_port + port_indices[device_index] * tests_per_device + test_index ))
       for attempt in $(seq 1 "$retries"); do
-        start_test_process "$binary" "$extra_flag" "$device" "$server_ip" "$port" "$ISOLATION_MODE"
+        start_test_process "$binary" "$extra_flag" "$device" "$local_ip" "$server_ip" "$port" "$ISOLATION_MODE"
         wait_test_process "$test_pid"
         [ "$test_exit_code" -eq 0 ] && break
         sleep 1
       done
-      record_test_result "$binary" "$extra_flag" "$device" "$server_ip" "$port" "$ISOLATION_MODE"
+      record_test_result "$binary" "$extra_flag" "$device" "$local_ip" "$server_ip" "$port" "$ISOLATION_MODE"
       # Make sure this test's server is gone before the next test reuses a port.
       pkill -f "^$binary " 2>/dev/null || true
       sleep 1
@@ -699,32 +830,34 @@ run_isolation_pass() {
 # of the per-device rows is the aggregate the interconnect actually sustains,
 # and any gap to the isolation pass exposes a shared bottleneck.
 run_concurrent_pass() {
-  local test_index binary extra_flag device_index device server_ip port attempt
+  local test_index binary extra_flag device_index device local_ip server_ip port attempt
   local -a pids=()
   for test_index in "${!test_matrix[@]}"; do
     IFS='|' read -r binary extra_flag <<< "${test_matrix[$test_index]}"
     pids=()
-    for device_index in "${!devices[@]}"; do
+    for device_index in "${ordered_device_indices[@]}"; do
       device="${devices[$device_index]}"
+      local_ip="${local_ips[$device_index]}"
       server_ip="${peer_ips[$device_index]}"
-      port=$(( base_port + device_index * tests_per_device + test_index ))
-      start_test_process "$binary" "$extra_flag" "$device" "$server_ip" "$port" "$CONCURRENT_MODE"
-      pids+=("$test_pid")
+      port=$(( base_port + port_indices[device_index] * tests_per_device + test_index ))
+      start_test_process "$binary" "$extra_flag" "$device" "$local_ip" "$server_ip" "$port" "$CONCURRENT_MODE"
+      pids[$device_index]="$test_pid"
     done
-    for device_index in "${!devices[@]}"; do
+    for device_index in "${ordered_device_indices[@]}"; do
       device="${devices[$device_index]}"
+      local_ip="${local_ips[$device_index]}"
       server_ip="${peer_ips[$device_index]}"
-      port=$(( base_port + device_index * tests_per_device + test_index ))
+      port=$(( base_port + port_indices[device_index] * tests_per_device + test_index ))
       wait_test_process "${pids[$device_index]}"
       # A failed client leaves its server blocked; retrying reconnects to it and
       # keeps the two roles in lockstep.
       for attempt in $(seq 1 "$retries"); do
         [ "$test_exit_code" -eq 0 ] && break
         sleep 1
-        start_test_process "$binary" "$extra_flag" "$device" "$server_ip" "$port" "$CONCURRENT_MODE"
+        start_test_process "$binary" "$extra_flag" "$device" "$local_ip" "$server_ip" "$port" "$CONCURRENT_MODE"
         wait_test_process "$test_pid"
       done
-      record_test_result "$binary" "$extra_flag" "$device" "$server_ip" "$port" "$CONCURRENT_MODE"
+      record_test_result "$binary" "$extra_flag" "$device" "$local_ip" "$server_ip" "$port" "$CONCURRENT_MODE"
     done
     # Make sure this test's servers are gone before the next test reuses a port.
     pkill -f "^$binary " 2>/dev/null || true
@@ -772,6 +905,8 @@ print_results_summary() {
 role=""
 run_name=""
 notes_file=""
+peer_config_file=""
+peer_name=""
 while [ "$#" -gt 0 ]; do
   case "$1" in
     host|client)
@@ -792,9 +927,26 @@ while [ "$#" -gt 0 ]; do
       modes_csv="$2"
       shift
       ;;
+    --config)
+      [ "$#" -ge 2 ] || fail "--config requires an argument"
+      [ -n "$2" ] || fail "--config requires a non-empty file path"
+      peer_config_file="$2"
+      shift
+      ;;
+    --peer)
+      [ "$#" -ge 2 ] || fail "--peer requires an argument"
+      [ -n "$2" ] || fail "--peer requires a non-empty peer name"
+      peer_name="$2"
+      shift
+      ;;
     --peer-ips)
       [ "$#" -ge 2 ] || fail "--peer-ips requires an argument"
       peer_ips_csv="$2"
+      shift
+      ;;
+    --peer-map)
+      [ "$#" -ge 2 ] || fail "--peer-map requires an argument"
+      peer_map_csv="$2"
       shift
       ;;
     --peer-host)
@@ -815,7 +967,7 @@ if [ -z "$role" ]; then
   exit 2
 fi
 if [ -n "$run_name" ] && [[ ! "$run_name" =~ $RUN_NAME_PATTERN ]]; then
-  fail "invalid run name '$run_name': use relative path segments of letters, digits, '.', '_' and '-' (no leading dot, no '..', no spaces)"
+  fail "invalid run name '$run_name': expected <campaign>/run-NNN using letters, digits, '.', '_' and '-' (no leading dot, no '..', no spaces)"
 fi
 
 results_root=${OUTDIR:-$RESULTS_ROOT_DEFAULT}
@@ -831,12 +983,18 @@ validate_configuration
 # modes_csv stays unset unless --modes was given, so an explicit empty value
 # fails the guard below instead of silently falling back to the default.
 modes_csv="${modes_csv-${MODES:-$MODES_DEFAULT}}"
-# peer_ips_csv stays unset unless --peer-ips was given; PEER_IPS is the env
-# equivalent. peer_host likewise for --peer-host / PEER_HOST. An empty value
-# means "no explicit peer", which falls back to the odd/even derivation in
-# assign_peer_ips.
+# Peer options also accept environment equivalents. One must be supplied so
+# tests never rely on an address convention from a particular cluster.
+peer_map_csv="${peer_map_csv-${PEER_MAP:-}}"
 peer_ips_csv="${peer_ips_csv-${PEER_IPS:-}}"
 peer_host="${peer_host-${PEER_HOST:-}}"
+if [ -n "$peer_config_file" ]; then
+  [ -z "$peer_map_csv" ] && [ -z "$peer_ips_csv" ] && [ -z "$peer_host" ] \
+    || fail "--config cannot be combined with --peer-map, --peer-ips, --peer-host, or their environment variables"
+  load_peer_config
+elif [ -n "$peer_name" ]; then
+  fail "--peer requires --config"
+fi
 modes=()
 IFS=',' read -r -a modes <<< "$modes_csv"
 if [ "${#modes[@]}" -eq 0 ]; then
@@ -855,16 +1013,20 @@ if [ "${#devices[@]}" -eq 0 ]; then
 fi
 
 assign_peer_ips
+assign_port_indices
 
 build_test_matrix
 tests_per_device=${#test_matrix[@]}
 
 if [ -n "$run_name" ]; then
-  out_dir="$results_root/$run_name/$role"
+  campaign_name="${run_name%/*}"
+  run_id="${run_name##*/}"
 else
-  # Ad-hoc run without --run-name: timestamped so repeated runs never collide.
-  out_dir="$results_root/$(date +%Y%m%d-%H%M%S)/$role"
+  # Ad-hoc runs use a timestamped campaign and a single numbered run.
+  campaign_name="$(date +%Y%m%d-%H%M%S)"
+  run_id="run-001"
 fi
+out_dir="$results_root/$campaign_name/$role/$run_id"
 if [ -e "$out_dir" ]; then
   fail "output directory already exists: $out_dir (choose a new --run-name; existing data is never overwritten)"
 fi
@@ -874,6 +1036,7 @@ mkdir -p "$out_dir" || fail "cannot create $out_dir"
 csv_file="$out_dir/results.csv"
 commands_file="$out_dir/commands.txt"
 parse_tmp_file="$out_dir/.parsing.tmp"
+failed_test_count=0
 trap 'rm -f "$parse_tmp_file"' EXIT
 
 echo "$CSV_HEADER" > "$csv_file" || fail "cannot write $csv_file"
@@ -909,3 +1072,7 @@ for mode in "${modes[@]}"; do
 done
 
 print_results_summary
+if [ "$failed_test_count" -gt 0 ]; then
+  echo "error: $failed_test_count test(s) failed; see $csv_file and the per-test logs" >&2
+  exit 1
+fi

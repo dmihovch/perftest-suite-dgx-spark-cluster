@@ -1,0 +1,34 @@
+# test   : ib_write_lat
+# device : roceP2p1s0f0
+# role   : client
+# local  : 10.65.0.31
+# peer   : 10.65.0.30
+# port   : 18538
+# command: ib_write_lat -d roceP2p1s0f0 --bind_source_ip 10.65.0.31 -i 1 -F -p 18538 -c RC -n 15000 --report_gbits 10.65.0.30
+# ---
+Couldn't connect to 10.65.0.30:18538
+Unable to open file descriptor for socket connection
+ Unable to init the socket connection
+---------------------------------------------------------------------------------------
+                    RDMA_Write Latency Test
+ Dual-port       : OFF		Device         : roceP2p1s0f0
+ Number of qps   : 1		Transport type : IB
+ Connection type : RC		Using SRQ      : OFF
+ PCIe relax order: OFF
+ ibv_wr* API     : ON
+ TX depth        : 1
+ Mtu             : 4096[B]
+ Link type       : Ethernet
+ GID index       : 5
+ Max inline data : 220[B]
+ rdma_cm QPs	 : OFF
+ Data ex. method : Ethernet
+---------------------------------------------------------------------------------------
+ local address: LID 0000 QPN 0x01a9 PSN 0xf806c0 RKey 0x199a97 VAddr 0x00ca302c236000
+ GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:65:00:31
+ remote address: LID 0000 QPN 0x0129 PSN 0x8d740a RKey 0x179d5b VAddr 0x00c37ff3faa000
+ GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:65:00:30
+---------------------------------------------------------------------------------------
+ #bytes #iterations    t_min[usec]    t_max[usec]  t_typical[usec]    t_avg[usec]    t_stdev[usec]   99% percentile[usec]   99.9% percentile[usec] 
+ 2       15000          2.44           18.74        2.50     	       2.56        	0.10   		2.78    		2.90   
+---------------------------------------------------------------------------------------

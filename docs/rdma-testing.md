@@ -1,4 +1,11 @@
 # RDMA Testing
+
+This is a historical setup log for the original Diya/Hoedus pair. Its netplan
+addresses, interface names, and manual commands are specific to that topology.
+For current pairwise testing on arbitrary Spark hosts and network layouts, use
+the generic commands in the repository root `README.md`. Scripts in
+`ib-test-scripts/` are also legacy examples for the original two-device setup.
+
 ## Tracking the things I am doing in order to setup and test RDMA
 
 ### Update to latest firmware:

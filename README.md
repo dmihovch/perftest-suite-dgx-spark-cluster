@@ -1,34 +1,25 @@
 # perftest-suite
 
-RDMA perftest matrix for two DGX Sparks joined by one or more QSFP cables.
-`host` = perftest server (binds). `client` = perftest client. Run both concurrently.
+Pairwise RDMA perftest suite for DGX Spark systems. `host` runs the perftest
+server. `client` runs the perftest client. Start both commands concurrently
+with matching pair and run identifiers.
 
 ## Topology
 
-Each physical QSFP port carries 2 logical RDMA devices. Devices are discovered at
-runtime: every RDMA device that is UP and has an IPv4 address is tested, so adding
-a cable automatically adds its devices to the run.
+Devices are discovered at runtime. Every RDMA device that is UP and has an
+IPv4 address is tested. Pass a JSON topology file for the current node with
+`--config`; use `--peer` to select a peer when the file lists more than one.
+Peer addresses come from the JSON file or explicit peer options.
 
-The peer's addresses come from `--peer-ips` (a comma-separated list) or
-`--peer-host` (a hostname, resolved through `/etc/hosts` or DNS). Each address
-is matched to the local device on the same subnet, so the list order does not
-matter and any IP scheme works. On the diya/hoedus cluster, where `/etc/hosts`
-on both nodes maps every cable IP to both hostnames, `--peer-host Hoedus`
-resolves to exactly the peer's four addresses. Without either option the peer
-IP is derived from the local IP by flipping the last octet between the odd/even
-pair (`1<->2`, `3<->4`, ...), which matches the cisc-diya / cisc-hoedus netplan
-scheme (diya = odd, hoedus = even, same /24):
+For direct links or switched fabrics that put each RDMA link on a distinct
+subnet, use `--peer-host` or `--peer-ips`. These options match peer addresses
+to RDMA devices by subnet. Use `--peer-map` when multiple links share one subnet
+or the peer is reached through a routed path. The suite maps each current-node
+RDMA device to a peer IP and binds perftest to the device's IP address.
 
-| subnet         | cisc-diya | cisc-hoedus |
-|----------------|-----------|-------------|
-| 10.10.10.0/24  | .1        | .2          |
-| 10.10.11.0/24  | .1        | .2          |
-| 10.10.12.0/24  | .1        | .2          |
-| 10.10.13.0/24  | .1        | .2          |
-
-The odd/even derivation is a fallback convention, not an invariant: on a cluster
-with any other addressing scheme, pass `--peer-ips` or `--peer-host` on both
-machines.
+Each run tests one pair of systems. A full pairwise matrix for N systems has
+N(N-1)/2 pairs. Each system needs one JSON peer profile for every other system.
+Start the host and client commands for each pair.
 
 ## Prereqs
 
@@ -36,17 +27,61 @@ machines.
 apt install perftest iproute2 jq
 ```
 
-`ethtool` and `pciutils` (provides `lspci`) are optional but strongly
-recommended: the suite captures link speed, PCIe width/speed, and
-driver/firmware versions into every run. Without them the environment capture
-is incomplete.
+`ethtool` and `pciutils` (which provides `lspci`) populate captured link speed,
+PCIe, driver, and firmware fields. The suite records empty values when these
+tools are unavailable.
 
-Identical perftest version on both nodes. The script uses `ip -j` and `jq` to
-discover devices and their addresses, and `ss` for the port preflight. `getent`
-(glibc, installed with Ubuntu) resolves `--peer-host` names.
+Use the same perftest version on both systems, and ensure both builds support
+`--bind_source_ip`. The suite requires `ip`, `jq`, `ss`, `timeout`, and
+`column`. `getent` resolves `--peer-host` names.
 
-The plot script needs numpy, pandas, and matplotlib (Python 3). Create a venv
-once per machine:
+## Synchronizing the repo and results
+
+Each script runs one rsync transfer between the current machine and one target.
+`deploy-repo.sh` copies a source directory to a remote destination.
+`collect-results.sh` copies a remote source directory to a local destination.
+Run each script once per hop when a target is reachable only through another
+machine. The scripts exclude repository files that are not needed to run the
+tests during deployment. The target machines do not need internet access.
+
+Use rsync's `host:path` syntax for a remote directory. SSH uses the configured
+hostname alias and username. The machine running each command needs an SSH
+entry for its target. Install `rsync` on both ends of each transfer.
+
+```sshconfig
+Host gx10-00
+  HostName <first-target-address>
+  User <login>
+
+Host gx10-01
+  HostName <second-target-address>
+  User <login>
+```
+
+Replace the address and login placeholders with the target values.
+
+```bash
+# On the current machine: copy the repo to the first target.
+./deploy-repo.sh /path/to/perftest-suite 'gx10-00:~/perftest-suite-cor/'
+
+# On the first target: copy the repo to the second target.
+./deploy-repo.sh ~/perftest-suite-cor 'gx10-01:~/perftest-suite-cor/'
+
+# On the first target: pull the campaign from the second target.
+./collect-results.sh 'gx10-01:~/perftest-suite-cor/perftest-results/test-test-test/' \
+  ~/perftest-suite-cor/perftest-results/test-test-test
+
+# On the current machine: pull the staged campaign from the first target.
+./collect-results.sh 'gx10-00:~/perftest-suite-cor/perftest-results/test-test-test/' \
+  /path/to/perftest-results/test-test-test
+```
+
+`deploy-repo.sh` takes a local source directory and an rsync remote destination.
+`collect-results.sh` takes an rsync remote source and a local destination
+directory.
+
+The plot script requires Python 3, numpy, pandas, and matplotlib. Install its
+dependencies in a virtual environment:
 
 ```
 python3 -m venv .venv
@@ -55,57 +90,127 @@ python3 -m venv .venv
 
 ## Run
 
+### Machine configuration
+
+Each file maps current-node RDMA device names to the IPv4 addresses of the
+selected peer's interfaces. Device names must match names discovered on the
+current node. The peer file must map each peer device back to the current
+interface. Explicit mappings work with direct cables, switched fabrics, and
+routed networks.
+
+For example, save this as `spark-a.json` on Spark A:
+
+```json
+{
+  "schema_version": 1,
+  "node": "spark-a",
+  "peers": {
+    "spark-b": {
+      "spark_a_device_1": "10.20.0.2",
+      "spark_a_device_2": "10.21.0.2"
+    }
+  }
+}
+```
+
+Save the reciprocal mapping as `spark-b.json` on Spark B:
+
+```json
+{
+  "schema_version": 1,
+  "node": "spark-b",
+  "peers": {
+    "spark-a": {
+      "spark_b_device_1": "10.20.0.1",
+      "spark_b_device_2": "10.21.0.1"
+    }
+  }
+}
+```
+
+For N Sparks, add one peer entry to each system's file for every other system.
+Each peer entry contains the peer's IPv4 address for every current-node RDMA
+device. A file with multiple peer entries requires `--peer` to select one.
+
 ### Single paired run
 
-Pass the same `--run-name` on both machines so the two sides land in matching
-directories (host/ vs client/). Name the peer machine with `--peer-host` (its
-addresses are resolved from `/etc/hosts` or DNS), or list its addresses with
-`--peer-ips` (any order; they are matched by subnet):
+Pass the same `--run-name` to both commands. Host and client results use
+matching directories. Example:
 
 host:
 ```
-./perftest-suite.sh host --run-name 2026-10-06-cable-a/run-001 --peer-host Hoedus
+./perftest-suite.sh host --config spark-a.json --run-name spark-a-to-spark-b/run-001
 ```
 client:
 ```
-./perftest-suite.sh client --run-name 2026-10-06-cable-a/run-001 --peer-host Diya
+./perftest-suite.sh client --config spark-b.json --run-name spark-a-to-spark-b/run-001
 ```
 
-Either option also accepts an environment equivalent, `PEER_HOST` / `PEER_IPS`,
-and `--peer-host` and `--peer-ips` are mutually exclusive.
+For a config with multiple peer entries, select the target system with `--peer`.
+Spark A uses `--config spark-a.json --peer spark-b`. Spark B uses
+`--config spark-b.json --peer spark-a`.
 
-Without `--run-name` the output lands in a timestamped directory; that is for
-ad-hoc runs only, since a host and its client started this way do not share a
-directory name.
+JSON files store peer mappings for repeatable runs. Peer options support
+one-off runs. `--peer-map` maps each current-node device to a peer address.
+`--peer-ips` supplies one address per device on a distinct subnet. The order
+does not matter. `--peer-host` resolves a hostname and matches addresses by
+subnet. Device names and discovery order can differ between systems. With
+explicit maps, reverse the current/peer IP pairs on the other
+system:
+
+```
+./perftest-suite.sh host --run-name spark-a-to-spark-b/run-001 \
+    --peer-map 'spark_a_device_1=10.20.0.2,spark_a_device_2=10.20.0.3'
+./perftest-suite.sh client --run-name spark-a-to-spark-b/run-001 \
+    --peer-map 'spark_b_device_1=10.20.0.1,spark_b_device_2=10.20.0.4'
+```
+
+Replace the example device names and addresses with the values from each
+machine. Each mapped address must be the unique IP of the corresponding peer
+interface. The reversed maps on both systems must describe the same interface
+pairs. Direct peer options are mutually exclusive with each other and with
+`--config`. They also accept `PEER_MAP`, `PEER_IPS`, and `PEER_HOST`
+environment variables.
+
+Without `--run-name`, each command uses a timestamped directory. Host and
+client commands need the same explicit run name to write to matching paths.
 
 ### Campaign (N repeated runs)
 
-Use `runner.sh`. Start the host side first, then the client side, with the
-same `--campaign` on both machines. Name the peer machine with `--peer-host`
-(or export `PEER_HOST` once per shell) so the campaign works on any addressing
-scheme:
+Use `runner.sh` for repeated tests between one pair. Start the host side first,
+then the client side, with the same `--campaign` on both machines:
 
 ```
-./runner.sh 5 host --campaign cables-oct06 --peer-host Hoedus     # cisc-diya
-./runner.sh 5 client --campaign cables-oct06 --peer-host Diya     # cisc-hoedus
+./runner.sh 5 host --campaign spark-a-to-spark-b --config spark-a.json
+./runner.sh 5 client --campaign spark-a-to-spark-b --config spark-b.json
 ```
 
-All runs are filed under one campaign directory, and run numbers are
-deterministic, so both machines' directories match exactly:
+Run these commands on gx10-00 and gx10-01 with the matching files in `configs/`:
 
 ```
-perftest-results/cables-oct06/run-001/{host,client}
-perftest-results/cables-oct06/run-002/{host,client}
+./runner.sh 5 host --campaign test-new --config configs/gx10-00.json
+./runner.sh 5 client --campaign test-new --config configs/gx10-01.json
+```
+
+For a config with multiple peer entries, pass `--peer <name>` on both systems.
+Run the campaign for each unique system pair.
+
+Each campaign uses matching run numbers on the current and target systems:
+
+```
+perftest-results/spark-a-to-spark-b/host/run-001
+perftest-results/spark-a-to-spark-b/host/run-002
+perftest-results/spark-a-to-spark-b/client/run-001
+perftest-results/spark-a-to-spark-b/client/run-002
 ...
 ```
 
-`runner.sh` stops the whole campaign if any run fails. Reusing a campaign name
-re-creates the same `run-00N` names, so pick a new campaign name (or delete
-the old one) rather than appending to an existing campaign.
+`runner.sh` stops the campaign when a run fails. A campaign name reuses the
+same `run-00N` directory names. Use a new campaign name for a separate run set.
 
 ## Tests
 
-Per device (11 tests), run once per mode. Total runs = devices x 11 x modes.
+Each mode runs 11 tests per device. Total test runs equal devices x 11 x modes.
 
 ```
 ib_send_lat   ib_write_lat   ib_read_lat   ib_atomic_lat
@@ -115,28 +220,25 @@ ib_send_bw -b ib_write_bw -b ib_read_bw -b     (-b = bidirectional)
 
 ## Modes
 
-`--modes` selects which passes run; the default is `isolation,concurrent`.
+`--modes` selects the test passes. The default is `isolation,concurrent`.
 
-- `isolation` runs one device at a time, retrying a failed test. It measures
-  each device's own ceiling with no contention.
-- `concurrent` runs every discovered device at once, one test at a time. This is
-  the saturation pass: the sum of the per-device rows is the aggregate the
-  interconnect sustains, so a run reports the link's true speed (e.g. 200 Gbit/s
-  unidirectional / 400 Gbit/s bidirectional on the two-NIC DGX Spark), and the
-  gap to the isolation pass is the shared bottleneck. A failed client is retried
-  as in the isolation pass; because its server is still blocked waiting, the
-  retry reconnects to it. Each process is bounded by `TEST_TIMEOUT`, so a client
-  that never connects cannot stall the campaign indefinitely.
+- `isolation` runs one device at a time and retries failed tests. Other suite
+  devices do not run concurrently during this pass.
+- `concurrent` runs every discovered device at once, one test at a time. The sum
+  of per-device rows is the measured aggregate rate. Compare it with isolation
+  results to measure the effect of concurrent device traffic.
+- A failed client is retried while its server waits for a connection. Each
+  process stops after `TEST_TIMEOUT` seconds.
 
-`runner.sh` runs every mode in its `SUITE_MODES` (`isolation,concurrent`), so one
-campaign captures the whole matrix. Add a mode there when the suite gains one.
+`runner.sh` uses the modes listed in `SUITE_MODES`. The default list is
+`isolation,concurrent`.
 
 ## Env
 
 | var             | default                   | meaning                            |
 |-----------------|---------------------------|------------------------------------|
 | `OUTDIR`        | `./perftest-results`      | results root; runs live under it   |
-| `BASE_PORT`     | `18515`                   | first TCP port; +1 per run         |
+| `BASE_PORT`     | `18515`                   | first TCP port; one port per device/test |
 | `CONN`          | `RC`                      | `-c` connection type               |
 | `LAT_ITERS`     | `15000`                   | `-n` iterations for `*_lat`        |
 | `BW_ITERS`      | `15000`                   | `-n` iterations for `*_bw` (≤20000)|
@@ -144,6 +246,7 @@ campaign captures the whole matrix. Add a mode there when the suite gains one.
 | `INITIAL_DELAY` | `3`                       | client startup delay (s)           |
 | `MODES`         | `isolation,concurrent`    | passes to run; see Modes           |
 | `TEST_TIMEOUT`  | `120`                     | per-process timeout (s)            |
+| `PEER_MAP`      | (none)                    | current-node RDMA device to peer IPv4 map; same as `--peer-map` |
 | `PEER_IPS`      | (none)                    | peer addresses, comma-separated; same as `--peer-ips` |
 | `PEER_HOST`     | (none)                    | peer hostname, resolved via /etc/hosts or DNS; same as `--peer-host` |
 
@@ -152,48 +255,54 @@ above that.
 
 ## Output
 
-Each run writes to `<OUTDIR>/<run-name>/<role>/`:
+Each run writes to `<OUTDIR>/<campaign>/<role>/<run-id>/`:
 
 ```
-cables-oct06/run-001/
+cables-oct06/
   host/
-    environment/                    hardware + link-state capture
-      system.json                   kernel, distro, perftest/rdma-core versions
-      <device>/
-        link.json                   parsed link speed, PCIe, MTU, driver
-        ethtool.txt                 raw `ethtool <netdev>`
-        ethtool-i.txt               raw `ethtool -i <netdev>` (driver/firmware)
-        ibv_devinfo.txt             raw `ibv_devinfo -d <device> -v`
-        lspci.txt                   raw `lspci -vv -s <addr>` (PCIe link)
-    results.csv                     parsed perftest tables, all message sizes
-    commands.txt                    every test's host and client command
-    <test>[_bidi]_<device>_<mode>.log   raw perftest output, never discarded
-    notes.<name>                    the --notes file, if one was given
+    run-001/
+      environment/                  hardware + link-state capture
+        system.json                 kernel, distro, perftest/rdma-core versions
+        <device>/
+          link.json                 parsed link speed, PCIe, MTU, driver
+          ethtool.txt               raw `ethtool <netdev>`
+          ethtool-i.txt             raw `ethtool -i <netdev>` (driver/firmware)
+          ibv_devinfo.txt           raw `ibv_devinfo -d <device> -v`
+          lspci.txt                 raw `lspci -vv -s <addr>` (PCIe link)
+      results.csv                   parsed perftest tables, all message sizes
+      commands.txt                  exact command and peer endpoint for this role
+      <test>[_bidi]_<device>_<mode>.log   raw perftest output
+      notes.<name>                  the --notes file, if one was given
+    run-002/
+      ... same layout ...
   client/
-    ... same layout ...
+    run-001/
+      ... same layout ...
+    run-002/
+      ... same layout ...
 ```
 
 `link.json` fields: `device`, `netdev`, `local_ip`, `peer_ip`, `mtu`,
 `link_speed_mbps`, `autoneg`, `link_detected`, `pcie_speed`, `pcie_width`,
 `active_width`, `active_speed_gbps`, `driver`, `driver_version`,
-`firmware_version`. Empty string means the tool or field was unavailable on that
-machine. `active_width` and `active_speed_gbps` come from `ibv_devinfo`; their
-product is the device's own link rate, which the figures use as the reference.
-`pcie_speed` and `pcie_width` fall back to sysfs (`current_link_speed`,
-`current_link_width`) when `lspci` cannot read the link capabilities without
-root.
+`firmware_version`. A field is empty when the capture tool or device does not
+provide its value. `active_width` and `active_speed_gbps` come from
+`ibv_devinfo`. Their product is the device port rate used in the bandwidth
+figures. `pcie_speed` and `pcie_width` use sysfs (`current_link_speed`,
+`current_link_width`) when `lspci` cannot read link capabilities as the current
+user.
 
-The suite also prints a one-line link-state table per device at startup:
+The suite prints one link-state row per device at startup:
 
 ```
 link state (device | local -> peer | link speed | pcie | mtu):
-  rocep1s0f0     | 10.10.10.2 -> 10.10.10.1 | 200000Mb/s | 16GT/s x8 | mtu 4096
+  rdma_device_0  | 192.0.2.2 -> 192.0.2.1 | 200000Mb/s | 16GT/s x8 | mtu 4096
 ```
 
 ## results.csv
 
-Tidy long format: one row per (test, message size). Units: bandwidth in
-**GB/s** (decimal gigabytes per second), latency in microseconds.
+Each row records one test and message size. Bandwidth uses **GB/s** (decimal
+gigabytes per second). Latency uses microseconds.
 
 ```
 test,device,role,mode,bidi,size_bytes,bw_peak_GBps,bw_avg_GBps,msg_rate_Mpps,lat_min_usec,lat_max_usec,lat_typical_usec,lat_avg_usec,lat_stdev_usec,lat_p99_usec,lat_p999_usec,error
@@ -207,58 +316,85 @@ test,device,role,mode,bidi,size_bytes,bw_peak_GBps,bw_avg_GBps,msg_rate_Mpps,lat
   directions in those rows.
 - Values are converted from perftest's `--report_gbits` output:
   `GB/s = Gbit/s / 8`.
-- The `error` column is empty on success. On failure it records what happened
-  (`perftest rc=N`, `no parseable rows in perftest output`), so a failed test
-  is never silently dropped.
-- perftest prints its results table on the **client**. Some host-side cells
-  are zero by perftest design (host `ib_send_bw` peak, host `ib_read_lat` /
-  `ib_atomic_lat`). Read BW/latency from the client's `results.csv`; the
-  host's file confirms the server bound and ran.
+- The `error` column is empty on success. It records failures such as
+  `perftest rc=N` and `no parseable rows in perftest output`.
+- perftest prints its measurement table on the **client**. Host-side
+  `ib_send_bw` peak is zero, and host CSV rows are omitted for `ib_read_lat`
+  and `ib_atomic_lat`. Use the client's CSV for these measurements. Host logs
+  record server output.
 
 ## Notes
 
-- `-c UD` has no read verbs; `ib_read_*` skipped when `CONN` is not `RC`/`UC`.
-- Both roles must use identical `CONN` and discover the same devices in the
-  same order; ports are allocated by position, so any divergence misaligns
-  them. Check the "discovered devices" tables on both sides match before
-  trusting a run. `--peer-ips` / `--peer-host` addresses are matched by subnet,
-  so their order does not need to match the device order.
-- Ports are checked free before the run; stale `ib_*` servers are killed
-  between tests.
+- `-c UD` has no read verbs. `ib_read_*` tests require `CONN=RC` or `CONN=UC`.
+- Both roles must use identical `CONN` and discover the same number of
+  corresponding devices. Port slots use current/peer IP pairs. Device names and
+  discovery order can differ. Check the discovered-device tables and peer maps
+  before starting a run.
+- The suite checks ports before each run and stops stale `ib_*` server
+  processes between tests.
 - `-F` suppresses the perftest cpufreq warning.
-- `--notes` is still free-form prose; replacing it with structured, validated
-  metadata (operator, cable part numbers, purpose, ...) is planned.
+- `--notes` writes free-form text to `notes.<name>` in the run directory.
 
 ## Figures
 
-`plot_perftest.py` in this directory reads every `results.csv` under a
-campaign tree and writes the paper figures to `figs/`:
+`plot_perftest.py` reads `results.csv` files under the results tree and writes
+figures to `figs/`:
 
 ```
-python plot_perftest.py     # from this repository
+python plot_perftest.py
+python plot_perftest.py --results /path/to/perftest-results \
+    --out /path/to/figures --format pdf
 ```
 
-`--results` and `--out` default to `perftest-results/` and `figs/` next to the
-script. The script imports numpy, pandas, and matplotlib only, so it and a
-campaign tree can be copied elsewhere and plotted from any working directory.
-It reads both roles and prefers client rows, because perftest prints the
-measurement tables on the client and leaves the read and atomic latency tables
-and the send_bw peak empty on the host side; a host row is used only for a key
-with no client row. The figures cover the bandwidth verbs at the tested
-message size, the send/write/read/atomic latency percentile tiers, per-run
-deviation from each repeat group's mean, and the aggregate bandwidth. The
-bandwidth figure draws one rate rule from the captured `ibv_devinfo` link rate
-(`active_speed x active_width`), so a bar at the rule is a saturated device
-link; its bars are per-direction rates, and the bidirectional bars are the
-perftest -b aggregate halved, so no bar compares a two-direction sum against a
-one-direction rate. The aggregate figure sums the per-device rates of the
-isolation and concurrent passes, unidirectional and bidirectional, and draws
-the fabric ceiling from `FABRIC_UNI_GBPS` / `FABRIC_BIDI_GBPS` (in Gbit/s) when
-set, falling back to the sum of the device link rates (doubled for the
-bidirectional panel). Set them to the interconnect's known caps so a bar at the
-rule is a saturated fabric; on the two-NIC DGX Spark that is
-`FABRIC_UNI_GBPS=200 FABRIC_BIDI_GBPS=400`. The unidirectional bars are the
-per-device sums of each run; the bidirectional bars are the perftest -b
-aggregates, which already count both directions. `ib_atomic_bw` runs at the
-default 8 B; the script prints its message rate with the role counts before
-drawing.
+`--results` and `--out` default to `perftest-results/` and `figs/` beside the
+script. `--results` can point to the whole tree or one campaign directory.
+`--format` accepts `pdf`, `png`, or `both`; `--dpi` sets PNG resolution.
+The script requires numpy, pandas, and matplotlib. It searches nested campaign
+directories. Output subdirectories use URL-encoded campaign paths.
+
+The script reads both client and host CSV files. A client row is preferred
+because perftest prints its measurement table on the client. A measured host
+row supplies a value when its matching client row has no measurement. The
+coverage report prints CSV row counts and error rows. Result trees without a
+`mode` column are read as isolation runs.
+
+Each figure contains one campaign and one measurement family. Bandwidth
+figures separate `send`, `write`, and `read`, and separate unidirectional from
+bidirectional tests. Latency figures separate `send`, `write`, `read`, and
+`atomic`, and show typical and p99 latency in separate figures. The 8-byte
+`ib_atomic_bw` test has a separate message-rate figure in million operations
+per second. The `results.csv` file also contains min, mean, max, and p99.9
+latency values.
+
+Per-device figure filenames include the measurement and direction. Examples
+include `bandwidth_read_uni.png`, `latency_write_p99.pdf`, and
+`atomic_message_rate.png`. Aggregate figure filenames start with `aggregate_`,
+such as `aggregate_send_bidi.png`. The x axis lists RDMA devices. Gray points
+show individual successful runs. Colored markers show mode means. Whiskers
+show the minimum and maximum. Color and marker shape identify isolation and
+concurrent modes. Per-device figures include the message size and run count.
+Latency figures use logarithmic y axes.
+
+Bandwidth values use the `bw_avg_GBps` result column in decimal GB/s. A
+bidirectional value is perftest's combined rate for both directions. A dashed
+line in a per-device bandwidth figure shows that device's captured port rate,
+from `active_width x active_speed_gbps`, converted from Gbit/s to GB/s. When
+those fields are unavailable, the plot uses `link_speed_mbps / 1,000` from
+ethtool. Bidirectional figures double the line rate because
+their measurement includes both directions. The line represents one port rate
+and excludes shared fabric capacity.
+
+Aggregate figures require complete isolation and concurrent runs for the same
+campaign, verb, and direction. Each point sums the device measurements from
+one complete run. The command output counts incomplete run-mode groups. Set
+`FABRIC_UNI_GBPS` and/or `FABRIC_BIDI_GBPS` in Gbit/s to draw an aggregate
+fabric reference. Example:
+
+```
+FABRIC_UNI_GBPS=200 FABRIC_BIDI_GBPS=400 \
+    python plot_perftest.py --format both
+```
+
+Per-device port rates do not specify shared fabric capacity. Set the fabric
+reference to the known aggregate limit for the tested path. Without either
+environment variable, aggregate figures show measurements and run spread.

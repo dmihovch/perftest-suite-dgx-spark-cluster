@@ -1,5 +1,10 @@
 # Dual-cable RDMA campaign setup
 
+This document is a topology-specific reference for the original Diya/Hoedus
+two-Spark cluster and its sibling LLM-serving benchmark. The example addresses,
+hostnames, and interface names do not configure arbitrary Spark clusters. Use
+the repository root `README.md` for generic RDMA perftest runs.
+
 This repository holds the RDMA perftest suite. The Netplan, /etc/hosts, and
 verification sections 1-4 configure the cluster network and run the suite. The
 sections after that (NCCL, Ray, model canaries, full campaign) run from the
@@ -161,9 +166,10 @@ cd ~/fsaii/perftest-suite-dgx-spark-cluster
 every cable IP to both hostnames, see above); `--peer-ips` with the four
 addresses works identically.
 
-Check `perftest-results/dual-200Gb-Oct-8/run-001/host/results.csv` and
-`client/results.csv`. Each device's isolation bandwidth should be a stable
-fraction of its `ibv_devinfo` link rate (`active_speed x active_width`), and the
+Check `perftest-results/dual-200Gb-Oct-8/host/run-001/results.csv` and
+`perftest-results/dual-200Gb-Oct-8/client/run-001/results.csv`. Each device's
+isolation bandwidth should be a stable fraction of its `ibv_devinfo` link rate
+(`active_speed x active_width`), and the
 concurrent aggregate (the sum of the `mode=concurrent` rows) is the saturation
 reading: it should sit at the fabric caps (200 Gbit/s unidirectional, 400
 Gbit/s bidirectional on this two-NIC system) rather than at the sum of the

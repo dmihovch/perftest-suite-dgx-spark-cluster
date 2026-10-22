@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Legacy two-device example for the original Spark pair.
+# Use ../perftest-suite.sh for arbitrary hosts, interfaces, and topologies.
 #
 #
 #

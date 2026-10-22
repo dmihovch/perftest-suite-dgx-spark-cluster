@@ -1,0 +1,35 @@
+# test   : ib_atomic_bw
+# device : roceP2p1s0f1
+# role   : host
+# local  : 10.65.0.20
+# peer   : 10.65.0.21
+# port   : 18533
+# command: ib_atomic_bw -d roceP2p1s0f1 --bind_source_ip 10.65.0.20 -i 1 -F -p 18533 -c RC -n 15000 --report_gbits
+# ---
+
+************************************
+* Waiting for client to connect... *
+************************************
+---------------------------------------------------------------------------------------
+                    Atomic FETCH_AND_ADD BW Test
+ Dual-port       : OFF		Device         : roceP2p1s0f1
+ Number of qps   : 1		Transport type : IB
+ Connection type : RC		Using SRQ      : OFF
+ PCIe relax order: ON
+ ibv_wr* API     : ON
+ CQ Moderation   : 100
+ Mtu             : 4096[B]
+ Link type       : Ethernet
+ GID index       : 5
+ Outstand reads  : 16
+ rdma_cm QPs	 : OFF
+ Data ex. method : Ethernet
+---------------------------------------------------------------------------------------
+ local address: LID 0000 QPN 0x0354 PSN 0x88a46
+ GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:65:00:20
+ remote address: LID 0000 QPN 0x02d4 PSN 0xa4630
+ GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:65:00:21
+---------------------------------------------------------------------------------------
+ #bytes     #iterations    BW peak[Gb/sec]    BW average[Gb/sec]   MsgRate[Mpps]
+ 8          15000           0.075472            0.075373            1.177706
+---------------------------------------------------------------------------------------

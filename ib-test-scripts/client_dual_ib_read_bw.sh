@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Legacy Diya/Hoedus example with fixed RDMA devices and peer IPs.
+# Use ../perftest-suite.sh for arbitrary hosts, interfaces, and topologies.
 #
 
 

@@ -1,0 +1,6 @@
+ib_send_lat_rocep1s0f0_isolation
+  host   : ib_send_lat -d rocep1s0f0 --bind_source_ip 10.65.0.30 -i 1 -F -p 18526 -c RC -n 15000 --report_gbits
+  client : ib_send_lat -d rocep1s0f0 --bind_source_ip 10.65.0.30 -i 1 -F -p 18526 -c RC -n 15000 --report_gbits 10.65.0.11
+ib_write_lat_rocep1s0f0_isolation
+  host   : ib_write_lat -d rocep1s0f0 --bind_source_ip 10.65.0.30 -i 1 -F -p 18527 -c RC -n 15000 --report_gbits
+  client : ib_write_lat -d rocep1s0f0 --bind_source_ip 10.65.0.30 -i 1 -F -p 18527 -c RC -n 15000 --report_gbits 10.65.0.11

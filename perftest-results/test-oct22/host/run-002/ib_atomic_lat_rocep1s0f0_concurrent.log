@@ -1,0 +1,31 @@
+# test   : ib_atomic_lat
+# device : rocep1s0f0
+# role   : host
+# local  : 10.65.0.30
+# peer   : 10.65.0.31
+# port   : 18540
+# command: ib_atomic_lat -d rocep1s0f0 --bind_source_ip 10.65.0.30 -i 1 -F -p 18540 -c RC -n 15000 --report_gbits
+# ---
+
+************************************
+* Waiting for client to connect... *
+************************************
+---------------------------------------------------------------------------------------
+                    Atomic FETCH_AND_ADD Latency Test
+ Dual-port       : OFF		Device         : rocep1s0f0
+ Number of qps   : 1		Transport type : IB
+ Connection type : RC		Using SRQ      : OFF
+ PCIe relax order: ON
+ ibv_wr* API     : ON
+ Mtu             : 4096[B]
+ Link type       : Ethernet
+ GID index       : 5
+ Outstand reads  : 16
+ rdma_cm QPs	 : OFF
+ Data ex. method : Ethernet
+---------------------------------------------------------------------------------------
+ local address: LID 0000 QPN 0x01c5 PSN 0xb868e5
+ GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:65:00:30
+ remote address: LID 0000 QPN 0x0245 PSN 0x500951
+ GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:65:00:31
+---------------------------------------------------------------------------------------
