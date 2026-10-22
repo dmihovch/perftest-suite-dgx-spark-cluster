@@ -210,11 +210,15 @@ same `run-00N` directory names. Use a new campaign name for a separate run set.
 
 ## Tests
 
-Each mode runs 11 tests per device. Total test runs equal devices x 11 x modes.
+Each mode runs up to 9 perftest commands per device. Send, write, and read run
+as separate latency, unidirectional bandwidth, and bidirectional bandwidth
+commands. Every command uses perftest's `-a` sweep, which measures payload
+sizes by powers of two from 2 bytes through 8 MiB. Read commands are skipped
+for `CONN=UD`; each size produces a separate result row.
 
 ```
-ib_send_lat   ib_write_lat   ib_read_lat   ib_atomic_lat
-ib_send_bw    ib_write_bw    ib_read_bw    ib_atomic_bw
+ib_send_lat   ib_write_lat   ib_read_lat
+ib_send_bw    ib_write_bw    ib_read_bw
 ib_send_bw -b ib_write_bw -b ib_read_bw -b     (-b = bidirectional)
 ```
 
@@ -310,8 +314,14 @@ test,device,role,mode,bidi,size_bytes,bw_peak_GBps,bw_avg_GBps,msg_rate_Mpps,lat
 
 - Bandwidth rows (`ib_*_bw`) fill the `bw_*` and `msg_rate_*` columns; latency
   rows fill the `lat_*` columns. The other columns are empty.
-- `mode` is `isolation` or `concurrent`; the same (test, device) appears once per
-  mode. Result trees written before the column existed are read as `isolation`.
+- `size_bytes` identifies each point in the perftest `-a` sweep, which covers
+  powers of two from 2 bytes through 8 MiB for these verbs.
+- `lat_avg_usec` records average measured latency for one message at each size.
+  `LAT_ITERS` applies to each payload size in the latency sweep.
+- `BW_ITERS` applies to each payload size in the bandwidth sweep.
+- `mode` is `isolation` or `concurrent`; each (test, device, mode, direction,
+  size) has one result row. Result trees written before the column existed are
+  read as `isolation`.
 - `bidi=true` rows are the `-b` tests; perftest reports the aggregate of both
   directions in those rows.
 - Values are converted from perftest's `--report_gbits` output:
@@ -319,9 +329,8 @@ test,device,role,mode,bidi,size_bytes,bw_peak_GBps,bw_avg_GBps,msg_rate_Mpps,lat
 - The `error` column is empty on success. It records failures such as
   `perftest rc=N` and `no parseable rows in perftest output`.
 - perftest prints its measurement table on the **client**. Host-side
-  `ib_send_bw` peak is zero, and host CSV rows are omitted for `ib_read_lat`
-  and `ib_atomic_lat`. Use the client's CSV for these measurements. Host logs
-  record server output.
+  `ib_send_bw` peak is zero, and host CSV rows are omitted for `ib_read_lat`.
+  Use the client's CSV for these measurements. Host logs record server output.
 
 ## Notes
 
@@ -358,43 +367,18 @@ row supplies a value when its matching client row has no measurement. The
 coverage report prints CSV row counts and error rows. Result trees without a
 `mode` column are read as isolation runs.
 
-Each figure contains one campaign and one measurement family. Bandwidth
-figures separate `send`, `write`, and `read`, and separate unidirectional from
-bidirectional tests. Latency figures separate `send`, `write`, `read`, and
-`atomic`, and show typical and p99 latency in separate figures. The 8-byte
-`ib_atomic_bw` test has a separate message-rate figure in million operations
-per second. The `results.csv` file also contains min, mean, max, and p99.9
-latency values.
+The script writes up to three figures per campaign, one each for `send`,
+`write`, and `read`. Each figure has one panel per RDMA device and plots
+transfer time against payload size on logarithmic axes. Each line averages
+successful runs for a size. Solid lines show the average measured latency.
+Dashed and dotted lines show the payload time derived from unidirectional and
+bidirectional bandwidth, respectively. Colors identify the `isolation` and
+`concurrent` modes. Bidirectional bandwidth is aggregate throughput for both
+directions, so its derived time uses twice the payload size. These
+bandwidth-derived values are throughput-based estimates; the latency lines
+show perftest's measured delay.
 
-Per-device figure filenames include the measurement and direction. Examples
-include `bandwidth_read_uni.png`, `latency_write_p99.pdf`, and
-`atomic_message_rate.png`. Aggregate figure filenames start with `aggregate_`,
-such as `aggregate_send_bidi.png`. The x axis lists RDMA devices. Gray points
-show individual successful runs. Colored markers show mode means. Whiskers
-show the minimum and maximum. Color and marker shape identify isolation and
-concurrent modes. Per-device figures include the message size and run count.
-Latency figures use logarithmic y axes.
-
-Bandwidth values use the `bw_avg_GBps` result column in decimal GB/s. A
-bidirectional value is perftest's combined rate for both directions. A dashed
-line in a per-device bandwidth figure shows that device's captured port rate,
-from `active_width x active_speed_gbps`, converted from Gbit/s to GB/s. When
-those fields are unavailable, the plot uses `link_speed_mbps / 1,000` from
-ethtool. Bidirectional figures double the line rate because
-their measurement includes both directions. The line represents one port rate
-and excludes shared fabric capacity.
-
-Aggregate figures require complete isolation and concurrent runs for the same
-campaign, verb, and direction. Each point sums the device measurements from
-one complete run. The command output counts incomplete run-mode groups. Set
-`FABRIC_UNI_GBPS` and/or `FABRIC_BIDI_GBPS` in Gbit/s to draw an aggregate
-fabric reference. Example:
-
-```
-FABRIC_UNI_GBPS=200 FABRIC_BIDI_GBPS=400 \
-    python plot_perftest.py --format both
-```
-
-Per-device port rates do not specify shared fabric capacity. Set the fabric
-reference to the known aggregate limit for the tested path. Without either
-environment variable, aggregate figures show measurements and run spread.
+Figure names are `transmission_time_send`, `transmission_time_write`, and
+`transmission_time_read`, with the selected output format as the extension.
+The results CSV retains the individual bandwidth and latency measurements,
+including latency percentiles.

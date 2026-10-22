@@ -1,13 +1,5 @@
 #!/usr/bin/env python3
-"""Plot RDMA perftest measurements as separate campaign figures.
-
-The loader scans result CSVs recursively and accepts a results tree or one
-campaign directory. Figures separate bandwidth verb and direction, latency
-verb and percentile, and atomic message rate. Run points, means, and min-max
-whiskers show repeated measurements. Bandwidth uses decimal GB/s. Bidirectional
-results include both directions. Fabric capacity lines require an explicit
-FABRIC_UNI_GBPS or FABRIC_BIDI_GBPS value.
-"""
+"""Plot RDMA perftest transmission-time curves by campaign and verb."""
 from __future__ import annotations
 
 import argparse
@@ -23,10 +15,8 @@ import matplotlib
 matplotlib.use("Agg")                      # Write figures without a display.
 import matplotlib.pyplot as plt
 from matplotlib import font_manager
-from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
-from matplotlib.ticker import FuncFormatter
 from urllib.parse import quote
 
 
@@ -94,10 +84,8 @@ def save_figure(fig: Figure, name: str, out: str, formats: list[str],
 SCRIPT_DIR = Path(__file__).resolve().parent
 
 
-# Bandwidth tests use 64 KiB messages. atomic_bw uses 8 B messages and reports
-# operations per second.
+# Perftest data tests sweep powers of two from 2 B through 8 MiB.
 VERBS = ("send", "write", "read")
-LATENCY_VERBS = ("send", "write", "read", "atomic")
 ROLES = ("client", "host")
 MEASUREMENT_COLUMNS = (
     "size_bytes", "bw_peak_GBps", "bw_avg_GBps", "msg_rate_Mpps",
@@ -113,15 +101,15 @@ ISOLATION_MODE = "isolation"
 CONCURRENT_MODE = "concurrent"
 
 MODE_STYLE = {
-    ISOLATION_MODE: dict(color="#0072B2", marker="o", label="isolation"),
-    CONCURRENT_MODE: dict(color="#D55E00", marker="s", label="concurrent"),
+    ISOLATION_MODE: dict(color="#0072B2", label="isolation"),
+    CONCURRENT_MODE: dict(color="#D55E00", label="concurrent"),
 }
-REFERENCE_COLOR = "0.35"
-INDIVIDUAL_RUN_COLOR = "0.55"
-LATENCY_METRICS = (
-    ("typical", "lat_typical_usec", "Typical latency (µs)"),
-    ("p99", "lat_p99_usec", "99th-percentile latency (µs)"),
-)
+TRANSMISSION_SERIES = {
+    "latency": ("lat_avg_usec", "measured latency", "-"),
+    "bandwidth uni": ("bw_avg_GBps", "bandwidth-derived unidirectional", "--"),
+    "bandwidth bidi": ("bw_avg_GBps", "bandwidth-derived bidirectional", ":"),
+}
+MAX_SIZE_TICK_LABELS = 7
 
 
 def _campaign_run_role(results_root: str, path: str) -> tuple[str, int, str]:
@@ -217,19 +205,8 @@ def load_perftest_results(
     all_rows["verb"] = parsed["verb"]
     all_rows["kind"] = parsed["kind"]
 
-    measured = all_rows[all_rows["error"] == ""]
-    sizes = measured.groupby(["campaign", "test", "bidi"])[
-        "size_bytes"].nunique(dropna=True)
-    swept = sizes[sizes > 1]
-    if len(swept):
-        detail = ", ".join(
-            f"{campaign}/{test} (bidi={bidi})"
-            for campaign, test, bidi in swept.index)
-        raise ValueError(
-            "message-size sweeps are not supported by these per-device "
-            f"figures: {detail}")
-
-    keys = ["campaign", "run", "device", "test", "bidi", "mode"]
+    keys = ["campaign", "run", "device", "test", "bidi", "mode",
+            "size_bytes"]
     # Measured client (0), measured host (1), error client (2), error host (3).
     rank = ((all_rows["error"] != "").astype(int) * 2
             + (all_rows["role"] != "client").astype(int))
@@ -303,12 +280,13 @@ def _results_summary(df: pd.DataFrame) -> str:
 
 def _role_agreement(all_rows: pd.DataFrame) -> str:
     """Return maximum client-host differences for shared measurements."""
-    keys = ["campaign", "run", "device", "test", "bidi", "mode"]
+    keys = ["campaign", "run", "device", "test", "bidi", "mode",
+            "size_bytes"]
     merged = all_rows[all_rows["role"] == "client"].merge(
         all_rows[all_rows["role"] == "host"], on=keys, suffixes=("_c", "_h"))
     parts = []
     for column, label in (("bw_avg_GBps", "bandwidth"),
-                          ("lat_typical_usec", "typical latency")):
+                          ("lat_avg_usec", "average message delay")):
         pairs = merged[merged[f"{column}_c"].notna()
                        & merged[f"{column}_h"].notna()]
         if not pairs.empty:
@@ -366,12 +344,6 @@ def report_coverage(df: pd.DataFrame, all_rows: pd.DataFrame,
                             group["device_rate_gbps"].dropna()})
             shown = ", ".join(f"{rate:g}" for rate in rates) or "none"
             print(f"  device link rate: {campaign}: {shown} Gb/s")
-    atomic = df[(df["error"] == "") & (df["test"] == "ib_atomic_bw")]
-    if not atomic.empty:
-        rates = atomic["msg_rate_Mpps"].dropna()
-        if not rates.empty:
-            print(f"  ib_atomic_bw: {len(rates)} row(s), "
-                  f"{rates.min():.2f}-{rates.max():.2f} million operations/s")
 
 
 def _campaign_figure_directory(out: str, campaign: str) -> str:
@@ -379,284 +351,145 @@ def _campaign_figure_directory(out: str, campaign: str) -> str:
     return os.path.join(out, quote(campaign, safe=""))
 
 
-def _measurement_modes(frame: pd.DataFrame) -> list[str]:
-    """Modes in fixed plot order, limited to measured rows."""
-    present = set(frame["mode"].astype(str))
-    return [mode for mode in (ISOLATION_MODE, CONCURRENT_MODE)
-            if mode in present]
+def _transmission_time_rows(
+        df: pd.DataFrame, campaign: str, verb: str) -> pd.DataFrame:
+    """Convert latency and bandwidth rows into per-payload transmission times."""
+    records: list[dict[str, str | int | float]] = []
+    for series, (value_column, _, _) in TRANSMISSION_SERIES.items():
+        test_kind = "lat" if series == "latency" else "bw"
+        rows = df[(df["campaign"] == campaign)
+                  & (df["test"] == f"ib_{verb}_{test_kind}")]
+        if series == "bandwidth uni":
+            rows = rows[rows["bidi"].eq(False)]
+        elif series == "bandwidth bidi":
+            rows = rows[rows["bidi"].eq(True)]
+
+        selected_rows = rows.loc[
+            (rows["error"] == "")
+            & rows["size_bytes"].notna()
+            & (rows["size_bytes"] > 0)
+            & rows[value_column].notna(),
+            ["device", "mode", "run", "size_bytes", value_column],
+        ]
+        for device, mode, run, size_bytes, value in selected_rows.itertuples(
+                index=False, name=None):
+            payload_bytes = float(size_bytes)
+            measured_value = float(value)
+            if series == "latency":
+                time_usec = measured_value
+            else:
+                if measured_value <= 0:
+                    continue
+                direction_count = 2 if series == "bandwidth bidi" else 1
+                time_usec = (
+                    payload_bytes * direction_count / (measured_value * 1000)
+                )
+            if not np.isfinite(time_usec) or time_usec <= 0:
+                continue
+            records.append({
+                "campaign": campaign,
+                "device": str(device),
+                "mode": str(mode),
+                "run": int(run),
+                "size_bytes": payload_bytes,
+                "series": series,
+                "time_usec": time_usec,
+            })
+    return pd.DataFrame.from_records(
+        records,
+        columns=["campaign", "device", "mode", "run", "size_bytes",
+                 "series", "time_usec"],
+    )
 
 
-def _repeat_count_label(frame: pd.DataFrame) -> str:
-    """Run-count range per device and mode for a plot caption."""
-    counts = frame.groupby(["device", "mode"])["run"].nunique()
-    if counts.empty:
-        return "n=0"
-    low, high = int(counts.min()), int(counts.max())
-    return f"n={low}" if low == high else f"n={low}-{high}"
-
-
-def _draw_repeat_summary(ax: Axes, center: float, values: pd.Series,
-                         color: str, marker: str) -> float:
-    """Draw run-level points and their arithmetic mean with min-max whiskers."""
-    observed = values.dropna().astype(float).sort_index().to_numpy()
-    if not len(observed):
-        return 0.0
-    offsets = np.linspace(-0.07, 0.07, len(observed))
-    ax.scatter(center + offsets, observed, s=11, color=INDIVIDUAL_RUN_COLOR,
-               alpha=0.55, linewidths=0, zorder=3)
-    minimum, maximum = float(observed.min()), float(observed.max())
-    mean = min(maximum, max(minimum, float(observed.mean())))
-    ax.errorbar(
-        center, mean,
-        yerr=[[mean - minimum], [maximum - mean]],
-        fmt=marker, color=color, markersize=4.2, elinewidth=0.9,
-        capsize=2.2, capthick=0.8, zorder=4)
-    return float(observed.max())
-
-
-def _repeat_legend(modes: list[str], has_link_rate: bool) -> list[Line2D]:
-    """Return legend handles for runs, modes, and optional port rates."""
-    handles = [Line2D([], [], color=INDIVIDUAL_RUN_COLOR, marker=".",
-                      linestyle="None", markersize=4,
-                      label="individual run")]
-    handles.extend(
-        Line2D([], [], color=MODE_STYLE[mode]["color"],
-               marker=MODE_STYLE[mode]["marker"], linestyle="None",
-               markersize=4,
-               label=f"{MODE_STYLE[mode]['label']} mean; min-max")
-        for mode in modes)
-    if has_link_rate:
-        handles.append(Line2D([], [], color=REFERENCE_COLOR,
-                              linestyle="--", linewidth=0.9,
-                              label="captured device port rate"))
-    return handles
-
-
-def _device_link_rates(link_speeds: pd.DataFrame,
-                       campaign: str) -> dict[str, float]:
-    """Return captured rates that are constant for each campaign device."""
-    campaign_links = link_speeds[link_speeds["campaign"] == campaign]
-    rates: dict[str, float] = {}
-    for device, group in campaign_links.groupby("device"):
-        unique = sorted({float(value) for value in
-                         group["device_rate_gbps"].dropna()})
-        if len(unique) == 1:
-            rates[str(device)] = unique[0]
-    return rates
-
-
-def _plot_device_measurement(
-        df: pd.DataFrame, campaign: str, test: str, value_column: str,
-        title: str, y_label: str, figure_name: str, out: str,
-        formats: list[str], *, link_speeds: pd.DataFrame | None = None,
-        bidi_flag: bool | None = None, log_y: bool = False) -> bool:
-    """Plot one test and metric for one campaign, grouped by RDMA device."""
-    campaign_rows = df[(df["campaign"] == campaign) & (df["test"] == test)]
-    if bidi_flag is not None:
-        campaign_rows = campaign_rows[campaign_rows["bidi"] == bidi_flag]
-    measured = campaign_rows[(campaign_rows["error"] == "")
-                             & campaign_rows[value_column].notna()]
-    if log_y:
-        measured = measured[measured[value_column] > 0]
-    if measured.empty:
+def _plot_transmission_time_curves(
+        df: pd.DataFrame, campaign: str, verb: str, out: str,
+        formats: list[str]) -> bool:
+    """Plot per-payload transmission-time curves for one RDMA verb."""
+    curves = _transmission_time_rows(df, campaign, verb)
+    if curves.empty:
         return False
 
-    devices = devices_in_order(campaign_rows)
-    modes = _measurement_modes(measured)
-    mode_offsets = ({mode: 0.0 for mode in modes} if len(modes) == 1 else {
-        ISOLATION_MODE: -0.17, CONCURRENT_MODE: 0.17})
-    captured_rates = (_device_link_rates(link_speeds, campaign)
-                       if link_speeds is not None and bidi_flag is not None
-                       else {})
-    fig_width = min(TEXT_W, max(COL_W, 1.7 + 0.85 * len(devices)))
-    fig, ax = plt.subplots(figsize=(fig_width, 3.6), constrained_layout=False)
-    fig.subplots_adjust(left=0.16, right=0.99, bottom=0.30, top=0.79)
-    highest = 0.0
+    devices = devices_in_order(curves)
+    modes = [
+        mode for mode in (ISOLATION_MODE, CONCURRENT_MODE)
+        if mode in set(curves["mode"].astype(str))
+    ]
+    series_values = [
+        series for series in TRANSMISSION_SERIES
+        if series in set(curves["series"].astype(str))
+    ]
+    sizes = sorted(float(size) for size in curves["size_bytes"].unique())
+    tick_stride = max(1, (len(sizes) + MAX_SIZE_TICK_LABELS - 1)
+                      // MAX_SIZE_TICK_LABELS)
+    tick_sizes = sizes[::tick_stride]
+    if sizes[-1] not in tick_sizes:
+        tick_sizes.append(sizes[-1])
+
+    figure_width = min(TEXT_W, max(COL_W, 1.7 * len(devices)))
+    figure, axes = plt.subplots(
+        1, len(devices), figsize=(figure_width, 3.6), squeeze=False,
+        sharex=True, sharey=True,
+    )
+    figure.subplots_adjust(left=0.12, right=0.99, bottom=0.25,
+                           top=0.82, wspace=0.3)
+    legend_handles: dict[str, Line2D] = {}
 
     for device_index, device in enumerate(devices):
+        axis = axes[0, device_index]
+        device_rows = curves[curves["device"] == device]
         for mode in modes:
-            group = measured[(measured["device"] == device)
-                             & (measured["mode"] == mode)]
-            highest = max(highest, _draw_repeat_summary(
-                ax, device_index + mode_offsets[mode], group[value_column],
-                MODE_STYLE[mode]["color"], MODE_STYLE[mode]["marker"]))
-        if device in captured_rates:
-            rate_gbps = captured_rates[device]
-            direction_multiplier = 2.0 if bidi_flag else 1.0
-            reference = rate_gbps * direction_multiplier / 8.0
-            ax.hlines(reference, device_index - 0.36, device_index + 0.36,
-                      color=REFERENCE_COLOR, linestyle="--", linewidth=0.9,
-                      zorder=1)
-            highest = max(highest, reference)
+            for series in series_values:
+                line_rows = device_rows[
+                    (device_rows["mode"] == mode)
+                    & (device_rows["series"] == series)
+                ]
+                if line_rows.empty:
+                    continue
+                summary = (line_rows.groupby("size_bytes")["time_usec"]
+                           .mean().sort_index())
+                color = MODE_STYLE[mode]["color"]
+                line_style = TRANSMISSION_SERIES[series][2]
+                label = (f"{MODE_STYLE[mode]['label']}: "
+                         f"{TRANSMISSION_SERIES[series][1]}")
+                axis.plot(summary.index.astype(float), summary.to_numpy(),
+                          color=color, linestyle=line_style, linewidth=1.6,
+                          label=label)
+                legend_handles.setdefault(
+                    label,
+                    Line2D([], [], color=color, linestyle=line_style,
+                           linewidth=1.6, label=label),
+                )
 
-    fig.suptitle(f"{campaign}: {title}", fontsize=8, y=0.97)
-    ax.set_xticks(range(len(devices)))
-    ax.set_xticklabels(devices, rotation=25, ha="right", fontsize=7)
-    ax.set_xlim(-0.5, max(0.5, len(devices) - 0.5))
-    ax.set_xlabel("RDMA device")
-    ax.set_ylabel(y_label)
-    ax.grid(axis="x", visible=False)
-    if log_y:
-        positive = measured[value_column].astype(float)
-        low, high = float(positive.min()), max(highest, float(positive.max()))
-        ax.set_yscale("log")
-        ax.yaxis.set_major_formatter(FuncFormatter(lambda value, _: f"{value:g}"))
-        ax.set_ylim(max(low * 0.8, np.finfo(float).tiny), high * 1.2)
-    else:
-        ax.set_ylim(0, highest * 1.12 if highest > 0 else 1.0)
-    ax.legend(handles=_repeat_legend(modes, bool(captured_rates)),
-              fontsize=6.2, ncol=2, loc="lower left",
-              bbox_to_anchor=(0, 1.02), borderaxespad=0)
+        axis.set_title(device, fontsize=8)
+        axis.set_xscale("log", base=2)
+        axis.set_yscale("log")
+        axis.set_xticks(tick_sizes, [_size_label(size) for size in tick_sizes])
+        axis.tick_params(axis="x", labelrotation=25, labelsize=7)
+        axis.grid(True, which="major", alpha=0.25, linewidth=0.5)
+        axis.set_xlabel("Payload size")
+        if device_index == 0:
+            axis.set_ylabel("Transfer time (µs)")
 
-    sizes = sorted(float(size) for size in measured["size_bytes"].dropna().unique())
-    size_text = ", ".join(_size_label(size) for size in sizes)
-    roles = "+".join(sorted(measured["role"].astype(str).unique()))
-    fig.text(0.5, 0.015,
-             f"{roles} rows; size={size_text}; "
-             f"n={_repeat_count_label(measured)} per device/mode; "
-             "points=runs; markers=means; whiskers=min-max",
-             ha="center", va="bottom", fontsize=6.3, color="0.25")
-    save_figure(fig, figure_name, out, formats, tight=True)
+    figure.suptitle(
+        f"{campaign}: {verb} transmission time by payload size",
+        fontsize=9, y=0.97,
+    )
+    figure.legend(handles=list(legend_handles.values()), fontsize=7,
+                  ncol=3, loc="lower center", bbox_to_anchor=(0.5, 0.01))
+    output_directory = _campaign_figure_directory(out, campaign)
+    save_figure(figure, f"transmission_time_{verb}", output_directory,
+                formats, tight=True)
     return True
 
 
-def _explicit_fabric_ceiling_gbps(env_name: str) -> float | None:
-    """Read a configured aggregate fabric limit in Gbit/s."""
-    raw = os.environ.get(env_name, "").strip()
-    if not raw:
-        return None
-    try:
-        value = float(raw)
-    except ValueError:
-        raise SystemExit(f"{env_name} must be a number (got {raw!r})")
-    if value <= 0:
-        raise SystemExit(f"{env_name} must be positive (got {raw!r})")
-    return value
-
-
-def _complete_aggregate_runs(
-        rows: pd.DataFrame, value_column: str) -> tuple[pd.DataFrame, int]:
-    """Sum runs with one successful measurement from every device."""
-    expected_devices = set(rows["device"].astype(str))
-    records: list[dict[str, int | str | float]] = []
-    omitted = 0
-    for (run, mode), group in rows.groupby(["run", "mode"]):
-        measured = group[(group["error"] == "")
-                         & group[value_column].notna()]
-        present_devices = set(measured["device"].astype(str))
-        if present_devices != expected_devices or len(measured) != len(expected_devices):
-            omitted += 1
-            continue
-        records.append({"run": int(run), "mode": str(mode),
-                        "value": float(measured[value_column].sum())})
-    return pd.DataFrame.from_records(records), omitted
-
-
-def _plot_aggregate_measurement(
-        df: pd.DataFrame, campaign: str, verb: str, bidi_flag: bool,
-        fabric_ceiling_gbps: float | None, out: str,
-        formats: list[str]) -> bool:
-    """Plot complete isolation and concurrent sums for one bandwidth test."""
-    test = f"ib_{verb}_bw"
-    rows = df[(df["campaign"] == campaign) & (df["test"] == test)
-              & (df["bidi"] == bidi_flag)]
-    if rows.empty:
-        return False
-    aggregate, omitted = _complete_aggregate_runs(rows, "bw_avg_GBps")
-    if omitted:
-        print(f"  {campaign}: {test} omitted {omitted} incomplete run-mode group(s)")
-    modes = _measurement_modes(aggregate)
-    if not {ISOLATION_MODE, CONCURRENT_MODE}.issubset(modes):
-        return False
-
-    fig, ax = plt.subplots(figsize=(COL_W, 3.3), constrained_layout=False)
-    fig.subplots_adjust(left=0.2, right=0.98, bottom=0.25, top=0.78)
-    for mode_index, mode in enumerate((ISOLATION_MODE, CONCURRENT_MODE)):
-        values = aggregate.loc[aggregate["mode"] == mode, "value"]
-        _draw_repeat_summary(
-            ax, float(mode_index), values, MODE_STYLE[mode]["color"],
-            MODE_STYLE[mode]["marker"])
-    capacity_gbps = fabric_ceiling_gbps
-    has_capacity = capacity_gbps is not None
-    if capacity_gbps is not None:
-        capacity_gbytes = capacity_gbps / 8.0
-        ax.axhline(capacity_gbytes, color=REFERENCE_COLOR, linestyle="--",
-                   linewidth=0.9, zorder=1)
-    direction = "bidirectional" if bidi_flag else "unidirectional"
-    fig.suptitle(
-        f"{campaign}: {verb} aggregate bandwidth, {direction}",
-        fontsize=8, y=0.97)
-    ax.set_xticks([0, 1])
-    ax.set_xticklabels(["isolation sum", "concurrent sum"], fontsize=7)
-    ax.set_ylabel("Aggregate bandwidth (GB/s)")
-    ax.set_ylim(0, max(float(aggregate["value"].max()),
-                       (capacity_gbps or 0.0) / 8.0) * 1.18)
-    ax.grid(axis="x", visible=False)
-    legend_handles = [
-        Line2D([], [], color=INDIVIDUAL_RUN_COLOR, marker=".",
-               linestyle="None", markersize=4, label="individual run"),
-        *[
-            Line2D([], [], color=MODE_STYLE[mode]["color"],
-                   marker=MODE_STYLE[mode]["marker"], linestyle="None",
-                   markersize=4,
-                   label=f"{MODE_STYLE[mode]['label']} mean; min-max")
-            for mode in (ISOLATION_MODE, CONCURRENT_MODE)
-        ],
-    ]
-    if has_capacity:
-        legend_handles.append(Line2D([], [], color=REFERENCE_COLOR,
-                                     linestyle="--", linewidth=0.9,
-                                     label=("configured fabric capacity "
-                                            f"({capacity_gbps:g} Gbit/s)")))
-    ax.legend(handles=legend_handles, fontsize=6.2, ncol=2,
-              loc="lower left", bbox_to_anchor=(0, 1.02), borderaxespad=0)
-    device_count = int(rows["device"].nunique())
-    fig.text(0.5, 0.015,
-             f"Complete runs; each point sums {device_count} devices; "
-             f"isolation n={len(aggregate[aggregate['mode'] == ISOLATION_MODE])}; "
-             f"concurrent n={len(aggregate[aggregate['mode'] == CONCURRENT_MODE])}; "
-             "bidirectional values combine both directions",
-             ha="center", va="bottom", fontsize=6.3, color="0.25")
-    direction_name = "bidi" if bidi_flag else "uni"
-    save_figure(fig, f"aggregate_{verb}_{direction_name}", out, formats,
-                tight=True)
-    return True
-
-
-def plot_campaign_figures(df: pd.DataFrame, link_speeds: pd.DataFrame,
-                          campaign: str, out: str,
+def plot_campaign_figures(df: pd.DataFrame, campaign: str, out: str,
                           formats: list[str]) -> int:
-    """Write the separate measurement figures for one campaign."""
-    figure_dir = _campaign_figure_directory(out, campaign)
+    """Write one transmission-time curve figure per available verb."""
     written = 0
     for verb in VERBS:
-        for bidi_flag in (False, True):
-            direction = "bidirectional" if bidi_flag else "unidirectional"
-            written += _plot_device_measurement(
-                df, campaign, f"ib_{verb}_bw", "bw_avg_GBps",
-                f"{verb} bandwidth, {direction}",
-                "Bandwidth (GB/s, both directions)" if bidi_flag
-                else "Bandwidth (GB/s)",
-                f"bandwidth_{verb}_{'bidi' if bidi_flag else 'uni'}",
-                figure_dir, formats, link_speeds=link_speeds,
-                bidi_flag=bidi_flag)
-            fabric_env = "FABRIC_BIDI_GBPS" if bidi_flag else "FABRIC_UNI_GBPS"
-            written += _plot_aggregate_measurement(
-                df, campaign, verb, bidi_flag,
-                _explicit_fabric_ceiling_gbps(fabric_env), figure_dir,
-                formats)
-
-    for verb in LATENCY_VERBS:
-        for label, column, axis_label in LATENCY_METRICS:
-            written += _plot_device_measurement(
-                df, campaign, f"ib_{verb}_lat", column, f"{verb} {label} latency",
-                axis_label, f"latency_{verb}_{label}", figure_dir, formats,
-                log_y=True)
-
-    written += _plot_device_measurement(
-        df, campaign, "ib_atomic_bw", "msg_rate_Mpps",
-        "atomic message rate", "Message rate (million operations/s)",
-        "atomic_message_rate", figure_dir, formats, bidi_flag=False)
+        written += _plot_transmission_time_curves(
+            df, campaign, verb, out, formats)
     return written
 
 
@@ -703,7 +536,7 @@ def main() -> None:
     figure_count = 0
     for campaign in sorted(df["campaign"].unique()):
         count = plot_campaign_figures(
-            df, link_speeds, str(campaign), args.out, formats)
+            df, str(campaign), args.out, formats)
         figure_count += count
         print(f"  {campaign}: {count} figure(s)")
     print(f"wrote {figure_count} figure(s) to {args.out}")

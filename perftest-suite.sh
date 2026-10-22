@@ -60,9 +60,11 @@ readonly RUN_NAME_PATTERN='^[A-Za-z0-9][A-Za-z0-9._-]*(/[A-Za-z0-9][A-Za-z0-9._-
 # perftest --report_gbits prints decimal Gbit/s; GB/s = Gbit/s / 8.
 readonly GBITS_PER_GBYTE=8
 
-readonly LATENCY_TESTS=(ib_send_lat ib_write_lat ib_read_lat ib_atomic_lat)
-readonly BANDWIDTH_TESTS=(ib_send_bw ib_write_bw ib_read_bw ib_atomic_bw)
-readonly BANDWIDTH_BIDI_TESTS=(ib_send_bw ib_write_bw ib_read_bw)
+readonly LATENCY_TESTS=(ib_send_lat ib_write_lat ib_read_lat)
+readonly BANDWIDTH_TESTS=(ib_send_bw ib_write_bw ib_read_bw)
+readonly BANDWIDTH_BIDI_TESTS=("${BANDWIDTH_TESTS[@]}")
+readonly SIZE_SWEEP_TESTS=("${LATENCY_TESTS[@]}" "${BANDWIDTH_TESTS[@]}")
+readonly SIZE_SWEEP_FLAG="-a"
 
 readonly CSV_HEADER="test,device,role,mode,bidi,size_bytes,bw_peak_GBps,bw_avg_GBps,msg_rate_Mpps,lat_min_usec,lat_max_usec,lat_typical_usec,lat_avg_usec,lat_stdev_usec,lat_p99_usec,lat_p999_usec,error"
 
@@ -434,6 +436,13 @@ preflight() {
   [[ "$perftest_help" == *"--bind_source_ip"* ]] \
     || fail "installed perftest does not support --bind_source_ip; install a build that supports source-IP binding"
 
+  local sweep_binary sweep_help
+  for sweep_binary in "${SIZE_SWEEP_TESTS[@]}"; do
+    sweep_help=$("$sweep_binary" --help 2>&1 || true)
+    [[ "$sweep_help" == *"--all"* ]] \
+      || fail "installed $sweep_binary does not support the required -a size sweep"
+  done
+
   # Optional: their absence degrades the environment capture, not the tests.
   for tool in ethtool lspci ibv_devinfo; do
     command -v "$tool" >/dev/null 2>&1 \
@@ -707,6 +716,13 @@ build_test_commands() {
   if [ -n "$extra_flag" ]; then
     base_arguments+=("$extra_flag")
   fi
+  local sweep_test
+  for sweep_test in "${SIZE_SWEEP_TESTS[@]}"; do
+    if [ "$binary" = "$sweep_test" ]; then
+      base_arguments+=("$SIZE_SWEEP_FLAG")
+      break
+    fi
+  done
 
   test_base_arguments=("${base_arguments[@]}")
   test_local_command="$binary ${base_arguments[*]}"
@@ -780,9 +796,8 @@ record_test_result() {
     if [ -s "$parse_tmp_file" ]; then
       cat "$parse_tmp_file" >> "$csv_file"
       rm -f "$parse_tmp_file"
-    elif [ "$role" = "host" ] \
-        && [[ "$binary" == "ib_read_lat" || "$binary" == "ib_atomic_lat" ]]; then
-      # These server processes succeed without emitting the client table.
+    elif [ "$role" = "host" ] && [ "$binary" = "ib_read_lat" ]; then
+      # The read-latency server succeeds without emitting the client table.
       rm -f "$parse_tmp_file"
     else
       echo "!! $tag produced no parseable rows" >&2
@@ -868,12 +883,12 @@ run_concurrent_pass() {
 print_results_summary() {
   echo
   echo "== results ($role) =="
-  echo "metric,test,device,mode,value,at_size_bytes" | column -t -s','
+  echo "metric,test,device,mode,bidi,value,at_size_bytes" | column -t -s','
   awk -F',' '
     NR == 1 { next }
     $17 != "" { next }
     {
-      key = $1 "," $2 "," $4
+      key = $1 "," $2 "," $4 "," $5
       if ($7 != "") {
         if ($7 + 0 > peak[key]) {
           peak[key] = $7 + 0
