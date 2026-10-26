@@ -1,0 +1,8 @@
+# test   : ib_send_lat
+# device : rocep1s0f1
+# role   : host
+# local  : 10.65.0.40
+# peer   : 10.65.0.41
+# port   : 18542
+# command: ib_send_lat -d rocep1s0f1 --bind_source_ip 10.65.0.40 -i 1 -F -p 18542 -c RC -n 15000 --report_gbits -a
+# ---

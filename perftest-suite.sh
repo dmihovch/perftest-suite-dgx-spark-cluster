@@ -29,6 +29,8 @@ set -uo pipefail
 #     results.csv                   parsed perftest tables, GB/s and usec
 #     <test>[_bidi]_<device>.log    raw perftest output, never discarded
 #     notes.<name>                  the --notes file, if one was given
+#   <results-root>/<campaign>/<role>-logs/<run-id>.log
+#                                  run timeline, process status, and retries
 # ---------------------------------------------------------------------------
 
 # `set -e` is deliberately not used: environment probes (ethtool, lspci,
@@ -43,6 +45,7 @@ readonly LATENCY_ITERATIONS_DEFAULT=15000
 readonly BANDWIDTH_ITERATIONS_DEFAULT=15000
 readonly RETRIES_DEFAULT=3
 readonly INITIAL_DELAY_DEFAULT=3
+readonly ERROR_LOG_TAIL_LINES=12
 # Bounds a perftest process whose peer never connects, so one failed client
 # cannot stall a campaign (the concurrent pass waits on every device at once).
 readonly TEST_TIMEOUT_DEFAULT=120
@@ -68,6 +71,10 @@ readonly SIZE_SWEEP_FLAG="-a"
 
 readonly CSV_HEADER="test,device,role,mode,bidi,size_bytes,bw_peak_GBps,bw_avg_GBps,msg_rate_Mpps,lat_min_usec,lat_max_usec,lat_typical_usec,lat_avg_usec,lat_stdev_usec,lat_p99_usec,lat_p999_usec,error"
 
+declare -A test_start_seconds_by_pid=()
+declare -A test_details_by_pid=()
+event_log_file=""
+
 usage() {
   echo "usage: $0 {host|client} [--run-name <name>] [--notes <file>] [--modes <list>] [--config <file> [--peer <name>] | --peer-map <device=ip,...> | --peer-ips <csv> | --peer-host <hostname>]" >&2
   echo "  --modes: comma-separated subset of $ISOLATION_MODE,$CONCURRENT_MODE (default $MODES_DEFAULT)" >&2
@@ -80,6 +87,23 @@ usage() {
 fail() {
   echo "error: $*" >&2
   exit 1
+}
+
+log_event() {
+  local event="$*"
+  local timestamp
+  timestamp=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+  printf '%s %s role=%s\n' "$timestamp" "$event" "$role" \
+    >> "$event_log_file" || fail "cannot write $event_log_file"
+}
+
+log_test_output_tail() {
+  local log_file="$1" line quoted_line quoted_log_file
+  printf -v quoted_log_file '%q' "$log_file"
+  while IFS= read -r line; do
+    printf -v quoted_line '%q' "$line"
+    log_event "perftest_output line=$quoted_line raw_log=$quoted_log_file"
+  done < <(tail -n "$ERROR_LOG_TAIL_LINES" "$log_file")
 }
 
 # True when the argument is a dotted-quad IPv4 address with octets in 0..255.
@@ -733,12 +757,15 @@ build_test_commands() {
 # Sets test_pid. The timeout bounds a process whose peer never connects, so a
 # failed client cannot stall the campaign.
 start_test_process() {
-  local binary="$1" extra_flag="$2" device="$3" local_ip="$4" server_ip="$5" port="$6" mode="$7"
+  local binary="$1" extra_flag="$2" device="$3" local_ip="$4" server_ip="$5" port="$6" mode="$7" attempt="${8:-1}"
+  local quoted_command quoted_log_file
 
   build_test_commands "$binary" "$extra_flag" "$device" "$local_ip" "$server_ip" "$port"
 
   local tag="${binary}${extra_flag:+_bidi}_${device}_${mode}"
   local log_file="$out_dir/$tag.log"
+  printf -v quoted_command '%q' "$test_local_command"
+  printf -v quoted_log_file '%q' "$log_file"
 
   # Header records the command for this local role. The peer may use a different
   # RDMA device name, so its exact command is recorded by the peer's run.
@@ -761,13 +788,23 @@ start_test_process() {
   [ "$role" = client ] && local_arguments+=("$server_ip")
   timeout "$test_timeout" "$binary" "${local_arguments[@]}" >> "$log_file" 2>&1 &
   test_pid=$!
+  test_start_seconds_by_pid[$test_pid]=$SECONDS
+  test_details_by_pid[$test_pid]="tag=$tag mode=$mode attempt=$attempt device=$device port=$port"
+  log_event "process_start tag=$tag mode=$mode attempt=$attempt pid=$test_pid local_ip=$local_ip peer_ip=$server_ip port=$port command=$quoted_command raw_log=$quoted_log_file"
 }
 
 # Wait for a launched process and set test_exit_code to its status.
 wait_test_process() {
   local pid="$1"
+  local started_at="${test_start_seconds_by_pid[$pid]:-$SECONDS}"
+  local details="${test_details_by_pid[$pid]:-tag=unknown}"
+  local elapsed_seconds
   test_exit_code=0
   wait "$pid" || test_exit_code=$?
+  elapsed_seconds=$((SECONDS - started_at))
+  log_event "process_exit $details pid=$pid exit_code=$test_exit_code elapsed_seconds=$elapsed_seconds"
+  unset "test_start_seconds_by_pid[$pid]"
+  unset "test_details_by_pid[$pid]"
 }
 
 # Record a finished test: parse its log into the CSV, or write an error row.
@@ -778,6 +815,8 @@ record_test_result() {
 
   local tag="${binary}${extra_flag:+_bidi}_${device}_${mode}"
   local log_file="$out_dir/$tag.log"
+  local quoted_log_file
+  printf -v quoted_log_file '%q' "$log_file"
   local bidi="false"
   [ -n "$extra_flag" ] && bidi="true"
   local kind
@@ -790,18 +829,26 @@ record_test_result() {
   if [ "$test_exit_code" -ne 0 ]; then
     echo "!! $tag failed rc=$test_exit_code" >&2
     append_error_row "$binary" "$device" "$mode" "$bidi" "perftest rc=$test_exit_code"
+    log_event "measurement_error tag=$tag exit_code=$test_exit_code reason=perftest_failure raw_log=$quoted_log_file"
+    log_test_output_tail "$log_file"
     failed_test_count=$((failed_test_count + 1))
   else
     parse_perftest_log "$log_file" "$kind" "$binary" "$device" "$mode" "$bidi" > "$parse_tmp_file"
     if [ -s "$parse_tmp_file" ]; then
+      local parsed_row_count
+      parsed_row_count=$(wc -l < "$parse_tmp_file")
       cat "$parse_tmp_file" >> "$csv_file"
+      log_event "measurement_recorded tag=$tag rows=$parsed_row_count raw_log=$quoted_log_file"
       rm -f "$parse_tmp_file"
     elif [ "$role" = "host" ] && [ "$binary" = "ib_read_lat" ]; then
       # The read-latency server succeeds without emitting the client table.
+      log_event "measurement_recorded tag=$tag rows=0 reason=read_latency_server_has_no_table raw_log=$quoted_log_file"
       rm -f "$parse_tmp_file"
     else
       echo "!! $tag produced no parseable rows" >&2
       append_error_row "$binary" "$device" "$mode" "$bidi" "no parseable rows in perftest output"
+      log_event "measurement_error tag=$tag reason=no_parseable_rows raw_log=$quoted_log_file"
+      log_test_output_tail "$log_file"
       failed_test_count=$((failed_test_count + 1))
       rm -f "$parse_tmp_file"
     fi
@@ -828,7 +875,7 @@ run_isolation_pass() {
       IFS='|' read -r binary extra_flag <<< "${test_matrix[$test_index]}"
       port=$(( base_port + port_indices[device_index] * tests_per_device + test_index ))
       for attempt in $(seq 1 "$retries"); do
-        start_test_process "$binary" "$extra_flag" "$device" "$local_ip" "$server_ip" "$port" "$ISOLATION_MODE"
+        start_test_process "$binary" "$extra_flag" "$device" "$local_ip" "$server_ip" "$port" "$ISOLATION_MODE" "$attempt"
         wait_test_process "$test_pid"
         [ "$test_exit_code" -eq 0 ] && break
         sleep 1
@@ -855,7 +902,7 @@ run_concurrent_pass() {
       local_ip="${local_ips[$device_index]}"
       server_ip="${peer_ips[$device_index]}"
       port=$(( base_port + port_indices[device_index] * tests_per_device + test_index ))
-      start_test_process "$binary" "$extra_flag" "$device" "$local_ip" "$server_ip" "$port" "$CONCURRENT_MODE"
+      start_test_process "$binary" "$extra_flag" "$device" "$local_ip" "$server_ip" "$port" "$CONCURRENT_MODE" 1
       pids[$device_index]="$test_pid"
     done
     for device_index in "${ordered_device_indices[@]}"; do
@@ -869,7 +916,7 @@ run_concurrent_pass() {
       for attempt in $(seq 1 "$retries"); do
         [ "$test_exit_code" -eq 0 ] && break
         sleep 1
-        start_test_process "$binary" "$extra_flag" "$device" "$local_ip" "$server_ip" "$port" "$CONCURRENT_MODE"
+        start_test_process "$binary" "$extra_flag" "$device" "$local_ip" "$server_ip" "$port" "$CONCURRENT_MODE" "$((attempt + 1))"
         wait_test_process "$test_pid"
       done
       record_test_result "$binary" "$extra_flag" "$device" "$local_ip" "$server_ip" "$port" "$CONCURRENT_MODE"
@@ -1045,17 +1092,31 @@ out_dir="$results_root/$campaign_name/$role/$run_id"
 if [ -e "$out_dir" ]; then
   fail "output directory already exists: $out_dir (choose a new --run-name; existing data is never overwritten)"
 fi
+run_log_dir="$results_root/$campaign_name/$role-logs"
+event_log_file="$run_log_dir/$run_id.log"
+if [ -e "$event_log_file" ]; then
+  fail "diagnostics log already exists: $event_log_file (choose a new --run-name; existing data is never overwritten)"
+fi
+mkdir -p "$run_log_dir" || fail "cannot create $run_log_dir"
+: > "$event_log_file" || fail "cannot create $event_log_file"
+log_event "run_start run_id=$run_id campaign=$campaign_name host=$(hostname) connection_type=$connection_type modes=${modes[*]} base_port=$base_port retries=$retries test_timeout_seconds=$test_timeout initial_delay_seconds=$initial_delay"
+trap 'exit_status=$?; log_event "run_exit exit_code=$exit_status"; if [ -n "${parse_tmp_file:-}" ]; then rm -f "$parse_tmp_file"; fi' EXIT
 
+log_event "preflight_start"
 preflight
+log_event "preflight_complete"
 mkdir -p "$out_dir" || fail "cannot create $out_dir"
 csv_file="$out_dir/results.csv"
 commands_file="$out_dir/commands.txt"
 parse_tmp_file="$out_dir/.parsing.tmp"
 failed_test_count=0
-trap 'rm -f "$parse_tmp_file"' EXIT
+printf -v quoted_csv_file '%q' "$csv_file"
+printf -v quoted_commands_file '%q' "$commands_file"
+printf -v quoted_environment_dir '%q' "$out_dir/environment"
 
 echo "$CSV_HEADER" > "$csv_file" || fail "cannot write $csv_file"
 : > "$commands_file" || fail "cannot create $commands_file"
+log_event "result_files_created results_csv=$quoted_csv_file commands_file=$quoted_commands_file"
 
 if [ -n "$notes_file" ]; then
   if [ ! -f "$notes_file" ]; then
@@ -1066,28 +1127,38 @@ if [ -n "$notes_file" ]; then
 fi
 
 echo "role=$role conn=$connection_type modes=${modes[*]} out=$out_dir"
+echo "diagnostics_log=$event_log_file"
 echo "discovered devices (device | local_ip | peer_ip):"
 for index in "${!devices[@]}"; do
   echo "  ${devices[$index]} | ${local_ips[$index]} | ${peer_ips[$index]}"
+  log_event "device_discovered name=${devices[$index]} local_ip=${local_ips[$index]} peer_ip=${peer_ips[$index]} port_slot=${port_indices[$index]}"
 done
 
+log_event "environment_capture_start directory=$quoted_environment_dir"
 capture_environment "$out_dir"
+log_event "environment_capture_complete directory=$quoted_environment_dir"
 
 if [ "$role" = client ]; then
   echo "targets=${peer_ips[*]}; starting in ${initial_delay}s"
+  log_event "initial_delay_start seconds=$initial_delay"
   sleep "$initial_delay"
+  log_event "initial_delay_complete"
 fi
 
 for mode in "${modes[@]}"; do
   echo "== mode: $mode =="
+  log_event "mode_start mode=$mode"
   case "$mode" in
     "$ISOLATION_MODE") run_isolation_pass ;;
     "$CONCURRENT_MODE") run_concurrent_pass ;;
   esac
+  log_event "mode_complete mode=$mode failed_test_count=$failed_test_count"
 done
 
 print_results_summary
 if [ "$failed_test_count" -gt 0 ]; then
+  log_event "run_complete status=failed failed_test_count=$failed_test_count results_csv=$quoted_csv_file"
   echo "error: $failed_test_count test(s) failed; see $csv_file and the per-test logs" >&2
   exit 1
 fi
+log_event "run_complete status=success failed_test_count=0 results_csv=$quoted_csv_file"

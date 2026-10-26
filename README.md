@@ -363,22 +363,32 @@ directories. Output subdirectories use URL-encoded campaign paths.
 
 The script reads both client and host CSV files. A client row is preferred
 because perftest prints its measurement table on the client. A measured host
-row supplies a value when its matching client row has no measurement. The
-coverage report prints CSV row counts and error rows. Result trees without a
-`mode` column are read as isolation runs.
+row supplies a value when its matching client row has no measurement. Rows
+match by campaign, run, endpoint pair, test, direction, mode, and payload size.
+The coverage report prints CSV row counts and error rows. Result trees without
+a `mode` column are read as isolation runs.
 
-The script writes up to three figures per campaign, one each for `send`,
-`write`, and `read`. Each figure has one panel per RDMA device and plots
-transfer time against payload size on logarithmic axes. Each line averages
-successful runs for a size. Solid lines show the average measured latency.
-Dashed and dotted lines show the payload time derived from unidirectional and
-bidirectional bandwidth, respectively. Colors identify the `isolation` and
-`concurrent` modes. Bidirectional bandwidth is aggregate throughput for both
-directions, so its derived time uses twice the payload size. These
-bandwidth-derived values are throughput-based estimates; the latency lines
-show perftest's measured delay.
+The script writes up to six figures per campaign. Each verb (`send`, `write`,
+and `read`) has separate latency and throughput figures. Link panels use a
+two-column layout and a logarithmic payload-size axis.
 
-Figure names are `transmission_time_send`, `transmission_time_write`, and
-`transmission_time_read`, with the selected output format as the extension.
-The results CSV retains the individual bandwidth and latency measurements,
-including latency percentiles.
+- `latency_<verb>` plots typical latency and p99 latency in microseconds.
+- `bandwidth_<verb>` plots unidirectional and bidirectional throughput in
+  decimal GB/s. Horizontal references show the nominal one-direction and
+  full-duplex link rates when link metadata is available.
+- Link panels use a canonical local/peer IP pair from `link.json`. Colors
+  distinguish isolation and concurrent measurements. A shaded band
+  shows the 10th–90th percentile across runs. Failure annotations identify
+  links without successful concurrent measurements.
+
+Figure names are `latency_send`, `latency_write`, `latency_read`,
+`bandwidth_send`, `bandwidth_write`, and `bandwidth_read`, with the selected
+output format as the extension. The results CSV retains individual bandwidth
+and latency measurements, including latency percentiles.
+
+The suite writes one run-level event log per role to
+`perftest-results/<campaign>/{host,client}-logs/run-NNN.log`. The log uses UTC
+timestamps and records device mappings, preflight and environment capture,
+test commands, retry attempts, process exit codes, elapsed seconds, and result
+row counts. Failed tests include a short excerpt of perftest output. Raw
+perftest output remains in the role's `run-NNN/` directory.
