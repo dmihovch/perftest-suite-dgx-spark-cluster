@@ -1,0 +1,11 @@
+# test   : ib_write_lat
+# device : roceP2p1s0f0
+# role   : client
+# local  : 10.65.0.31
+# peer   : 10.65.0.30
+# port   : 18534
+# command: ib_write_lat -d roceP2p1s0f0 --bind_source_ip 10.65.0.31 -i 1 -F -p 18534 -c RC -n 15000 --report_gbits -a 10.65.0.30
+# ---
+Couldn't connect to 10.65.0.30:18534
+Unable to open file descriptor for socket connection
+ Unable to init the socket connection

@@ -14,6 +14,7 @@ exec rsync --archive --compress --partial --human-readable --progress -e ssh \
   --exclude='/.git/' \
   --exclude='/.venv/' \
   --exclude='/perftest-results/' \
+  --exclude='/transmission-results/' \
   --exclude='/.agents/' \
   --exclude='/.aws/' \
   --exclude='/.codex/' \

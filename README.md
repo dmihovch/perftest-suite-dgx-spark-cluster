@@ -80,6 +80,10 @@ Replace the address and login placeholders with the target values.
 `collect-results.sh` takes an rsync remote source and a local destination
 directory.
 
+For fixed-volume transfer-time estimates using installed perftest executables
+and the existing result-collection workflow, see
+[`rdma-transfer-suite/README.md`](rdma-transfer-suite/README.md).
+
 The plot script requires Python 3, numpy, pandas, and matplotlib. Install its
 dependencies in a virtual environment:
 
@@ -368,23 +372,42 @@ match by campaign, run, endpoint pair, test, direction, mode, and payload size.
 The coverage report prints CSV row counts and error rows. Result trees without
 a `mode` column are read as isolation runs.
 
-The script writes up to six figures per campaign. Each verb (`send`, `write`,
-and `read`) has separate latency and throughput figures. Link panels use a
-two-column layout and a logarithmic payload-size axis.
+The script writes up to nine figures per campaign. Each verb (`send`, `write`,
+and `read`) has latency, throughput, and estimated transmission-time figures.
+Link panels use a two-column layout and logarithmic axes with numeric tick
+labels.
 
 - `latency_<verb>` plots typical latency and p99 latency in microseconds.
 - `bandwidth_<verb>` plots unidirectional and bidirectional throughput in
-  decimal GB/s. Horizontal references show the nominal one-direction and
-  full-duplex link rates when link metadata is available.
+  decimal GB/s. The log y axis uses numeric GB/s tick labels, and curve labels
+  show the largest-payload throughput. Horizontal references show the nominal
+  one-direction and full-duplex link rates when link metadata is available.
+- `transmission_time_<verb>` estimates transfer time for 0.1, 1, 10, and 100
+  decimal GB volumes. Each estimate adds the smallest-payload typical latency
+  as startup time to the transfer volume divided by the largest-payload
+  average throughput. The graph states this estimate model and uses log axes
+  for volume and time.
 - Link panels use a canonical local/peer IP pair from `link.json`. Colors
   distinguish isolation and concurrent measurements. A shaded band
   shows the 10th–90th percentile across runs. Failure annotations identify
   links without successful concurrent measurements.
 
 Figure names are `latency_send`, `latency_write`, `latency_read`,
-`bandwidth_send`, `bandwidth_write`, and `bandwidth_read`, with the selected
-output format as the extension. The results CSV retains individual bandwidth
-and latency measurements, including latency percentiles.
+`bandwidth_send`, `bandwidth_write`, `bandwidth_read`,
+`transmission_time_send`, `transmission_time_write`, and
+`transmission_time_read`, with the selected output format as the extension.
+The results CSV retains individual bandwidth and latency measurements,
+including latency percentiles.
+
+## Transfer-time estimates
+
+`rdma-transfer-suite/` uses the suite's host/client configs, campaign runs,
+RDMA links, and isolation/concurrent modes for fixed-volume `ib_*_bw` tests.
+It estimates client data-phase time from perftest's reported average
+bandwidth, records the report-rounding bound, and retains process wall time
+and the exact requested payload volume. See
+[rdma-transfer-suite/README.md](rdma-transfer-suite/README.md) for commands
+and result fields.
 
 The suite writes one run-level event log per role to
 `perftest-results/<campaign>/{host,client}-logs/run-NNN.log`. The log uses UTC

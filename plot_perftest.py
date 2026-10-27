@@ -19,6 +19,7 @@ from matplotlib.axes import Axes
 from matplotlib import font_manager
 from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
+from matplotlib.ticker import FuncFormatter, LogLocator
 from urllib.parse import quote
 
 
@@ -115,6 +116,7 @@ BANDWIDTH_SERIES = (
     (True, "bidirectional", "--"),
 )
 MAX_SIZE_TICK_LABELS = 5
+TRANSFER_VOLUME_GB = (0.1, 1.0, 10.0, 100.0)
 
 
 def _campaign_run_role(results_root: str, path: str) -> tuple[str, int, str]:
@@ -327,6 +329,20 @@ def _payload_size_ticks(sizes: list[float]) -> list[float]:
     return tick_sizes
 
 
+def _format_log_tick(value: float, _position: int | None) -> str:
+    """Display logarithmic ticks as numeric values in the axis unit."""
+    if not math.isfinite(value) or value <= 0:
+        return ""
+    return f"{value:.3g}"
+
+
+def _set_log_y_axis(axis: Axes) -> None:
+    """Use powers-of-ten ticks with numeric labels on a log y axis."""
+    axis.set_yscale("log", base=10)
+    axis.yaxis.set_major_locator(LogLocator(base=10, subs=(1.0,)))
+    axis.yaxis.set_major_formatter(FuncFormatter(_format_log_tick))
+
+
 def _results_summary(df: pd.DataFrame) -> str:
     """Return campaign, run, and campaign-link counts."""
     campaigns = int(df["campaign"].nunique())
@@ -428,10 +444,11 @@ def _measurement_rows(df: pd.DataFrame, campaign: str, verb: str,
 
 
 def _plot_run_summary(axis: Axes, rows: pd.DataFrame, value_column: str,
-                      label: str, color: str, line_style: str) -> None:
+                      label: str, color: str, line_style: str
+                      ) -> tuple[float, float] | None:
     """Plot the median measurement and the 10th–90th percentile run range."""
     if rows.empty:
-        return
+        return None
     summary = rows.groupby("size_bytes")[value_column].agg(
         median="median",
         lower=lambda values: values.quantile(0.1),
@@ -459,6 +476,9 @@ def _plot_run_summary(axis: Axes, rows: pd.DataFrame, value_column: str,
         label=label,
         zorder=3,
     )
+    if median_values[-1] <= 0:
+        return None
+    return float(payload_sizes[-1]), float(median_values[-1])
 
 
 def _failure_annotation(df: pd.DataFrame, campaign: str, verb: str,
@@ -482,7 +502,10 @@ def _failure_annotation(df: pd.DataFrame, campaign: str, verb: str,
 
 
 def _figure_axes(devices: list[str], ylabel: str,
-                 tick_sizes: list[float]) -> tuple[Figure, np.ndarray]:
+                 tick_sizes: list[float], *, x_label: str = "Payload size",
+                 x_base: int = 2,
+                 tick_labels: list[str] | None = None
+                 ) -> tuple[Figure, np.ndarray]:
     """Create a two-column grid of link panels with shared axes."""
     column_count = 2 if len(devices) > 1 else 1
     row_count = math.ceil(len(devices) / column_count)
@@ -500,12 +523,14 @@ def _figure_axes(devices: list[str], ylabel: str,
         row_index, column_index = divmod(device_index, column_count)
         axis = axes[row_index, column_index]
         axis.set_title(device, fontsize=8)
-        axis.set_xscale("log", base=2)
-        axis.set_xticks(tick_sizes, [_size_label(size) for size in tick_sizes])
+        axis.set_xscale("log", base=x_base)
+        labels = (tick_labels if tick_labels is not None else
+                  [_size_label(size) for size in tick_sizes])
+        axis.set_xticks(tick_sizes, labels)
         axis.tick_params(axis="both", labelsize=7)
         axis.grid(True, which="major", alpha=0.25, linewidth=0.5)
         axis.grid(True, which="minor", alpha=0.10, linewidth=0.4)
-        axis.set_xlabel("Payload size")
+        axis.set_xlabel(x_label)
         if column_index == 0:
             axis.set_ylabel(ylabel)
     for unused_index in range(len(devices), row_count * column_count):
@@ -571,7 +596,7 @@ def _plot_latency_figure(df: pd.DataFrame, campaign: str, verb: str,
                 color="#8B2E1B",
                 bbox={"facecolor": "white", "edgecolor": "none", "alpha": 0.85},
             )
-        axis.set_yscale("log")
+        _set_log_y_axis(axis)
 
     figure.suptitle(f"{verb.capitalize()} latency vs payload size\n{campaign}",
                     fontsize=10, y=0.97)
@@ -599,7 +624,8 @@ def _plot_bandwidth_figure(df: pd.DataFrame, campaign: str, verb: str,
         return False
     tick_sizes = _payload_size_ticks(sizes)
 
-    figure, axes = _figure_axes(devices, "Throughput (GB/s)", tick_sizes)
+    figure, axes = _figure_axes(
+        devices, "Throughput (decimal GB/s)", tick_sizes)
     handles: dict[str, Line2D] = {}
     for device_index, device in enumerate(devices):
         row_index, column_index = divmod(
@@ -613,8 +639,23 @@ def _plot_bandwidth_figure(df: pd.DataFrame, campaign: str, verb: str,
                     df, campaign, verb, "bw", mode, value_column, bidi)
                 metric_rows = metric_rows[metric_rows["device"] == device]
                 label = f"{MODE_STYLE[mode]['label']}: {direction_label}"
-                _plot_run_summary(
+                last_point = _plot_run_summary(
                     axis, metric_rows, value_column, label, color, line_style)
+                if last_point is not None:
+                    offset_y = (7 if not bidi else -9)
+                    if mode == CONCURRENT_MODE:
+                        offset_y += 9 if not bidi else -9
+                    axis.annotate(
+                        f"{last_point[1]:.3g} GB/s",
+                        xy=last_point,
+                        xytext=(4, offset_y),
+                        textcoords="offset points",
+                        color=color,
+                        fontsize=6,
+                        ha="left",
+                        va="center",
+                        clip_on=True,
+                    )
                 if not metric_rows.empty:
                     handles.setdefault(
                         label,
@@ -659,7 +700,7 @@ def _plot_bandwidth_figure(df: pd.DataFrame, campaign: str, verb: str,
                 color="#8B2E1B",
                 bbox={"facecolor": "white", "edgecolor": "none", "alpha": 0.85},
             )
-        axis.set_yscale("log")
+        _set_log_y_axis(axis)
 
     figure.suptitle(f"{verb.capitalize()} throughput vs payload size\n{campaign}",
                     fontsize=10, y=0.97)
@@ -672,15 +713,147 @@ def _plot_bandwidth_figure(df: pd.DataFrame, campaign: str, verb: str,
     return True
 
 
+def _paired_transfer_measurements(df: pd.DataFrame, campaign: str,
+                                  verb: str, device: str, mode: str,
+                                  bidi: bool) -> pd.DataFrame:
+    """Pair each run's smallest-message latency with its largest-message rate."""
+    latency_rows = _measurement_rows(
+        df, campaign, verb, "lat", mode, "lat_typical_usec")
+    latency_rows = latency_rows[
+        (latency_rows["device"] == device)
+        & (latency_rows["lat_typical_usec"] > 0)
+    ]
+    latency_by_run = (latency_rows.sort_values("size_bytes")
+                      .drop_duplicates("run", keep="first")
+                      .loc[:, ["run", "lat_typical_usec"]])
+
+    bandwidth_rows = _measurement_rows(
+        df, campaign, verb, "bw", mode, "bw_avg_GBps", bidi)
+    bandwidth_rows = bandwidth_rows[
+        (bandwidth_rows["device"] == device)
+        & (bandwidth_rows["bw_avg_GBps"] > 0)
+    ]
+    bandwidth_by_run = (bandwidth_rows.sort_values("size_bytes")
+                        .drop_duplicates("run", keep="last")
+                        .loc[:, ["run", "bw_avg_GBps"]])
+    return latency_by_run.merge(
+        bandwidth_by_run, on="run", how="inner", validate="one_to_one")
+
+
+def _plot_transmission_time_summary(axis: Axes, rows: pd.DataFrame,
+                                    label: str, color: str,
+                                    line_style: str) -> bool:
+    """Plot estimated bulk transfer time and its 10th–90th run range."""
+    if rows.empty:
+        return False
+    volume_gb = np.asarray(TRANSFER_VOLUME_GB, dtype=float)
+    latency_seconds = rows["lat_typical_usec"].to_numpy(dtype=float) / 1e6
+    throughput_gbps = rows["bw_avg_GBps"].to_numpy(dtype=float)
+    estimates = (latency_seconds[:, np.newaxis]
+                 + volume_gb[np.newaxis, :] / throughput_gbps[:, np.newaxis])
+    median_seconds = np.median(estimates, axis=0)
+    lower_seconds = np.quantile(estimates, 0.1, axis=0)
+    upper_seconds = np.quantile(estimates, 0.9, axis=0)
+    axis.fill_between(
+        volume_gb,
+        lower_seconds,
+        upper_seconds,
+        color=color,
+        alpha=0.12,
+        linewidth=0,
+        zorder=1,
+    )
+    axis.plot(
+        volume_gb,
+        median_seconds,
+        color=color,
+        linestyle=line_style,
+        linewidth=1.7,
+        marker="o",
+        markersize=3,
+        label=label,
+        zorder=3,
+    )
+    return True
+
+
+def _plot_transmission_time_figure(df: pd.DataFrame, campaign: str,
+                                   verb: str, out: str,
+                                   formats: list[str]) -> bool:
+    """Plot estimated transfer time for decimal-GB volumes, per link."""
+    rows = df[(df["campaign"] == campaign)
+              & (df["test"] == f"ib_{verb}_bw")]
+    if rows.empty:
+        return False
+    devices = devices_in_order(rows)
+    volumes = list(TRANSFER_VOLUME_GB)
+    figure, axes = _figure_axes(
+        devices,
+        "Estimated transfer time (s)",
+        volumes,
+        x_label="Total data volume",
+        x_base=10,
+        tick_labels=[f"{volume:g} GB" for volume in volumes],
+    )
+    handles: dict[str, Line2D] = {}
+    plotted_series = 0
+    for device_index, device in enumerate(devices):
+        row_index, column_index = divmod(
+            device_index, 2 if len(devices) > 1 else 1)
+        axis = axes[row_index, column_index]
+        for mode in (ISOLATION_MODE, CONCURRENT_MODE):
+            color = MODE_STYLE[mode]["color"]
+            for bidi, direction_label, line_style in BANDWIDTH_SERIES:
+                paired_rows = _paired_transfer_measurements(
+                    df, campaign, verb, device, mode, bidi)
+                label = f"{MODE_STYLE[mode]['label']}: {direction_label}"
+                if _plot_transmission_time_summary(
+                        axis, paired_rows, label, color, line_style):
+                    plotted_series += 1
+                    handles.setdefault(
+                        label,
+                        Line2D([], [], color=color, linestyle=line_style,
+                               linewidth=1.7, marker="o", markersize=3,
+                               label=label),
+                    )
+        _set_log_y_axis(axis)
+
+    if not plotted_series:
+        plt.close(figure)
+        return False
+
+    figure.suptitle(
+        f"{verb.capitalize()} estimated transmission time\n{campaign}",
+        fontsize=10,
+        y=0.97,
+    )
+    figure.text(
+        0.5,
+        0.105,
+        "Estimate = smallest-payload typical latency + volume / largest-payload average throughput.",
+        ha="center",
+        fontsize=6.5,
+    )
+    if handles:
+        figure.legend(handles=list(handles.values()), fontsize=6.5, ncol=4,
+                      loc="lower center", bbox_to_anchor=(0.5, 0.01))
+    output_directory = _campaign_figure_directory(out, campaign)
+    save_figure(figure, f"transmission_time_{verb}", output_directory,
+                formats, tight=True)
+    return True
+
+
 def plot_campaign_figures(df: pd.DataFrame, campaign: str,
                           link_speeds: pd.DataFrame, out: str,
                           formats: list[str]) -> int:
-    """Write separate latency and throughput figures for each verb."""
+    """Write latency, throughput, and estimated transfer-time figures."""
     written = 0
     for verb in VERBS:
         written += _plot_latency_figure(df, campaign, verb, out, formats)
         written += _plot_bandwidth_figure(
             df, campaign, verb, link_speeds, out, formats)
+        written += _plot_transmission_time_figure(
+            df, campaign, verb, out, formats)
     return written
 
 

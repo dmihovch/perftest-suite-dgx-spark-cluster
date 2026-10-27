@@ -1,0 +1,8 @@
+# test   : ib_write_lat
+# device : rocep1s0f0
+# role   : host
+# local  : 10.65.0.30
+# peer   : 10.65.0.31
+# port   : 18534
+# command: ib_write_lat -d rocep1s0f0 --bind_source_ip 10.65.0.30 -i 1 -F -p 18534 -c RC -n 15000 --report_gbits -a
+# ---

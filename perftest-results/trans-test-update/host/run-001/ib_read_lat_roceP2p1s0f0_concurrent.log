@@ -1,0 +1,8 @@
+# test   : ib_read_lat
+# device : roceP2p1s0f0
+# role   : host
+# local  : 10.65.0.10
+# peer   : 10.65.0.11
+# port   : 18517
+# command: ib_read_lat -d roceP2p1s0f0 --bind_source_ip 10.65.0.10 -i 1 -F -p 18517 -c RC -n 15000 --report_gbits -a
+# ---
