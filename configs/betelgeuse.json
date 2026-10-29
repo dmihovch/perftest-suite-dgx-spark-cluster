@@ -1,12 +1,12 @@
 {
   "schema_version": 1,
-  "node": "diya",
+  "node": "betelgeuse",
   "peers": {
-    "betelgeuse": {
-      "roceP2p1s0f0": "10.10.11.3",
-      "roceP2p1s0f1": "10.10.13.3",
-      "rocep1s0f0": "10.10.10.3",
-      "rocep1s0f1": "10.10.12.3"
+    "diya": {
+      "roceP2p1s0f0": "10.10.11.1",
+      "roceP2p1s0f1": "10.10.13.1",
+      "rocep1s0f0": "10.10.10.1",
+      "rocep1s0f1": "10.10.12.1"
     }
   }
 }
