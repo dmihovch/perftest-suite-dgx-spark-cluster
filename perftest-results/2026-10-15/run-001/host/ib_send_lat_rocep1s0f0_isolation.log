@@ -1,0 +1,6 @@
+# test   : ib_send_lat
+# device : rocep1s0f0
+# port   : 18515
+# host   : ib_send_lat -d rocep1s0f0 -i 1 -F -p 18515 -c RC -n 15000 --report_gbits
+# client : ib_send_lat -d rocep1s0f0 -i 1 -F -p 18515 -c RC -n 15000 --report_gbits 10.10.10.2
+# ---

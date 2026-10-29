@@ -1,0 +1,32 @@
+# test   : ib_write_lat
+# device : roceP2p1s0f0
+# port   : 18538
+# host   : ib_write_lat -d roceP2p1s0f0 -i 1 -F -p 18538 -c RC -n 15000 --report_gbits
+# client : ib_write_lat -d roceP2p1s0f0 -i 1 -F -p 18538 -c RC -n 15000 --report_gbits 10.10.11.2
+# ---
+
+************************************
+* Waiting for client to connect... *
+************************************
+---------------------------------------------------------------------------------------
+                    RDMA_Write Latency Test
+ Dual-port       : OFF		Device         : roceP2p1s0f0
+ Number of qps   : 1		Transport type : IB
+ Connection type : RC		Using SRQ      : OFF
+ PCIe relax order: OFF
+ ibv_wr* API     : ON
+ Mtu             : 2048[B]
+ Link type       : Ethernet
+ GID index       : 3
+ Max inline data : 220[B]
+ rdma_cm QPs	 : OFF
+ Data ex. method : Ethernet
+---------------------------------------------------------------------------------------
+ local address: LID 0000 QPN 0x07f3 PSN 0xf2d0d4 RKey 0x18b6b4 VAddr 0x00aacc2929a000
+ GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:10:11:01
+ remote address: LID 0000 QPN 0x07b3 PSN 0x9d5b9f RKey 0x186868 VAddr 0x00aeace3c36000
+ GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:10:11:02
+---------------------------------------------------------------------------------------
+ #bytes #iterations    t_min[usec]    t_max[usec]  t_typical[usec]    t_avg[usec]    t_stdev[usec]   99% percentile[usec]   99.9% percentile[usec] 
+ 2       15000          1.38           3.86         1.86     	       1.88        	0.05   		2.62    		3.02   
+---------------------------------------------------------------------------------------

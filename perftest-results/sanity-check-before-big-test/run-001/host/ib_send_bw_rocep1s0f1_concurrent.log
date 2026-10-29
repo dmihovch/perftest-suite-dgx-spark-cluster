@@ -1,0 +1,35 @@
+# test   : ib_send_bw
+# device : rocep1s0f1
+# port   : 18530
+# host   : ib_send_bw -d rocep1s0f1 -i 1 -F -p 18530 -c RC -n 15000 --report_gbits
+# client : ib_send_bw -d rocep1s0f1 -i 1 -F -p 18530 -c RC -n 15000 --report_gbits 10.10.12.2
+# ---
+ WARNING: BW peak won't be measured in this run.
+
+************************************
+* Waiting for client to connect... *
+************************************
+---------------------------------------------------------------------------------------
+                    Send BW Test
+ Dual-port       : OFF		Device         : rocep1s0f1
+ Number of qps   : 1		Transport type : IB
+ Connection type : RC		Using SRQ      : OFF
+ PCIe relax order: ON
+ ibv_wr* API     : ON
+ RX depth        : 512
+ CQ Moderation   : 1
+ Mtu             : 2048[B]
+ Link type       : Ethernet
+ GID index       : 3
+ Max inline data : 0[B]
+ rdma_cm QPs	 : OFF
+ Data ex. method : Ethernet
+---------------------------------------------------------------------------------------
+ local address: LID 0000 QPN 0x077d PSN 0xf61760
+ GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:10:12:01
+ remote address: LID 0000 QPN 0x073d PSN 0x30d13d
+ GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:10:12:02
+---------------------------------------------------------------------------------------
+ #bytes     #iterations    BW peak[Gb/sec]    BW average[Gb/sec]   MsgRate[Mpps]
+ 65536      15000            0.00               109.03 		   0.207951
+---------------------------------------------------------------------------------------
