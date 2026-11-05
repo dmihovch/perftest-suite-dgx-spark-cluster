@@ -6,7 +6,7 @@ if [[ $# -ne 2 ]]; then
   exit 2
 fi
 
-source_path=${1%/}/
+source_path=$1
 destination_dir=${2%/}/
 
 exec rsync --archive --compress --partial --human-readable --progress -e ssh \

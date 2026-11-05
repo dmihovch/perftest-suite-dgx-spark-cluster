@@ -1,0 +1,360 @@
+ib_send_lat_rocep1s0f0_isolation
+  role   : client
+  local  : 10.65.0.11
+  peer   : 10.65.0.10
+  command: ib_send_lat -d rocep1s0f0 --bind_source_ip 10.65.0.11 -i 1 -F -p 18515 -c RC -n 15000 --report_gbits -a 10.65.0.10
+ib_write_lat_rocep1s0f0_isolation
+  role   : client
+  local  : 10.65.0.11
+  peer   : 10.65.0.10
+  command: ib_write_lat -d rocep1s0f0 --bind_source_ip 10.65.0.11 -i 1 -F -p 18516 -c RC -n 15000 --report_gbits -a 10.65.0.10
+ib_read_lat_rocep1s0f0_isolation
+  role   : client
+  local  : 10.65.0.11
+  peer   : 10.65.0.10
+  command: ib_read_lat -d rocep1s0f0 --bind_source_ip 10.65.0.11 -i 1 -F -p 18517 -c RC -n 15000 --report_gbits -a 10.65.0.10
+ib_send_bw_rocep1s0f0_isolation
+  role   : client
+  local  : 10.65.0.11
+  peer   : 10.65.0.10
+  command: ib_send_bw -d rocep1s0f0 --bind_source_ip 10.65.0.11 -i 1 -F -p 18518 -c RC -n 15000 --report_gbits -a 10.65.0.10
+ib_write_bw_rocep1s0f0_isolation
+  role   : client
+  local  : 10.65.0.11
+  peer   : 10.65.0.10
+  command: ib_write_bw -d rocep1s0f0 --bind_source_ip 10.65.0.11 -i 1 -F -p 18519 -c RC -n 15000 --report_gbits -a 10.65.0.10
+ib_read_bw_rocep1s0f0_isolation
+  role   : client
+  local  : 10.65.0.11
+  peer   : 10.65.0.10
+  command: ib_read_bw -d rocep1s0f0 --bind_source_ip 10.65.0.11 -i 1 -F -p 18520 -c RC -n 15000 --report_gbits -a 10.65.0.10
+ib_send_bw_bidi_rocep1s0f0_isolation
+  role   : client
+  local  : 10.65.0.11
+  peer   : 10.65.0.10
+  command: ib_send_bw -d rocep1s0f0 --bind_source_ip 10.65.0.11 -i 1 -F -p 18521 -c RC -n 15000 --report_gbits -b -a 10.65.0.10
+ib_write_bw_bidi_rocep1s0f0_isolation
+  role   : client
+  local  : 10.65.0.11
+  peer   : 10.65.0.10
+  command: ib_write_bw -d rocep1s0f0 --bind_source_ip 10.65.0.11 -i 1 -F -p 18522 -c RC -n 15000 --report_gbits -b -a 10.65.0.10
+ib_read_bw_bidi_rocep1s0f0_isolation
+  role   : client
+  local  : 10.65.0.11
+  peer   : 10.65.0.10
+  command: ib_read_bw -d rocep1s0f0 --bind_source_ip 10.65.0.11 -i 1 -F -p 18523 -c RC -n 15000 --report_gbits -b -a 10.65.0.10
+ib_send_lat_rocep1s0f1_isolation
+  role   : client
+  local  : 10.65.0.21
+  peer   : 10.65.0.20
+  command: ib_send_lat -d rocep1s0f1 --bind_source_ip 10.65.0.21 -i 1 -F -p 18524 -c RC -n 15000 --report_gbits -a 10.65.0.20
+ib_write_lat_rocep1s0f1_isolation
+  role   : client
+  local  : 10.65.0.21
+  peer   : 10.65.0.20
+  command: ib_write_lat -d rocep1s0f1 --bind_source_ip 10.65.0.21 -i 1 -F -p 18525 -c RC -n 15000 --report_gbits -a 10.65.0.20
+ib_read_lat_rocep1s0f1_isolation
+  role   : client
+  local  : 10.65.0.21
+  peer   : 10.65.0.20
+  command: ib_read_lat -d rocep1s0f1 --bind_source_ip 10.65.0.21 -i 1 -F -p 18526 -c RC -n 15000 --report_gbits -a 10.65.0.20
+ib_send_bw_rocep1s0f1_isolation
+  role   : client
+  local  : 10.65.0.21
+  peer   : 10.65.0.20
+  command: ib_send_bw -d rocep1s0f1 --bind_source_ip 10.65.0.21 -i 1 -F -p 18527 -c RC -n 15000 --report_gbits -a 10.65.0.20
+ib_write_bw_rocep1s0f1_isolation
+  role   : client
+  local  : 10.65.0.21
+  peer   : 10.65.0.20
+  command: ib_write_bw -d rocep1s0f1 --bind_source_ip 10.65.0.21 -i 1 -F -p 18528 -c RC -n 15000 --report_gbits -a 10.65.0.20
+ib_read_bw_rocep1s0f1_isolation
+  role   : client
+  local  : 10.65.0.21
+  peer   : 10.65.0.20
+  command: ib_read_bw -d rocep1s0f1 --bind_source_ip 10.65.0.21 -i 1 -F -p 18529 -c RC -n 15000 --report_gbits -a 10.65.0.20
+ib_send_bw_bidi_rocep1s0f1_isolation
+  role   : client
+  local  : 10.65.0.21
+  peer   : 10.65.0.20
+  command: ib_send_bw -d rocep1s0f1 --bind_source_ip 10.65.0.21 -i 1 -F -p 18530 -c RC -n 15000 --report_gbits -b -a 10.65.0.20
+ib_write_bw_bidi_rocep1s0f1_isolation
+  role   : client
+  local  : 10.65.0.21
+  peer   : 10.65.0.20
+  command: ib_write_bw -d rocep1s0f1 --bind_source_ip 10.65.0.21 -i 1 -F -p 18531 -c RC -n 15000 --report_gbits -b -a 10.65.0.20
+ib_read_bw_bidi_rocep1s0f1_isolation
+  role   : client
+  local  : 10.65.0.21
+  peer   : 10.65.0.20
+  command: ib_read_bw -d rocep1s0f1 --bind_source_ip 10.65.0.21 -i 1 -F -p 18532 -c RC -n 15000 --report_gbits -b -a 10.65.0.20
+ib_send_lat_roceP2p1s0f0_isolation
+  role   : client
+  local  : 10.65.0.31
+  peer   : 10.65.0.30
+  command: ib_send_lat -d roceP2p1s0f0 --bind_source_ip 10.65.0.31 -i 1 -F -p 18533 -c RC -n 15000 --report_gbits -a 10.65.0.30
+ib_write_lat_roceP2p1s0f0_isolation
+  role   : client
+  local  : 10.65.0.31
+  peer   : 10.65.0.30
+  command: ib_write_lat -d roceP2p1s0f0 --bind_source_ip 10.65.0.31 -i 1 -F -p 18534 -c RC -n 15000 --report_gbits -a 10.65.0.30
+ib_read_lat_roceP2p1s0f0_isolation
+  role   : client
+  local  : 10.65.0.31
+  peer   : 10.65.0.30
+  command: ib_read_lat -d roceP2p1s0f0 --bind_source_ip 10.65.0.31 -i 1 -F -p 18535 -c RC -n 15000 --report_gbits -a 10.65.0.30
+ib_send_bw_roceP2p1s0f0_isolation
+  role   : client
+  local  : 10.65.0.31
+  peer   : 10.65.0.30
+  command: ib_send_bw -d roceP2p1s0f0 --bind_source_ip 10.65.0.31 -i 1 -F -p 18536 -c RC -n 15000 --report_gbits -a 10.65.0.30
+ib_write_bw_roceP2p1s0f0_isolation
+  role   : client
+  local  : 10.65.0.31
+  peer   : 10.65.0.30
+  command: ib_write_bw -d roceP2p1s0f0 --bind_source_ip 10.65.0.31 -i 1 -F -p 18537 -c RC -n 15000 --report_gbits -a 10.65.0.30
+ib_read_bw_roceP2p1s0f0_isolation
+  role   : client
+  local  : 10.65.0.31
+  peer   : 10.65.0.30
+  command: ib_read_bw -d roceP2p1s0f0 --bind_source_ip 10.65.0.31 -i 1 -F -p 18538 -c RC -n 15000 --report_gbits -a 10.65.0.30
+ib_send_bw_bidi_roceP2p1s0f0_isolation
+  role   : client
+  local  : 10.65.0.31
+  peer   : 10.65.0.30
+  command: ib_send_bw -d roceP2p1s0f0 --bind_source_ip 10.65.0.31 -i 1 -F -p 18539 -c RC -n 15000 --report_gbits -b -a 10.65.0.30
+ib_write_bw_bidi_roceP2p1s0f0_isolation
+  role   : client
+  local  : 10.65.0.31
+  peer   : 10.65.0.30
+  command: ib_write_bw -d roceP2p1s0f0 --bind_source_ip 10.65.0.31 -i 1 -F -p 18540 -c RC -n 15000 --report_gbits -b -a 10.65.0.30
+ib_read_bw_bidi_roceP2p1s0f0_isolation
+  role   : client
+  local  : 10.65.0.31
+  peer   : 10.65.0.30
+  command: ib_read_bw -d roceP2p1s0f0 --bind_source_ip 10.65.0.31 -i 1 -F -p 18541 -c RC -n 15000 --report_gbits -b -a 10.65.0.30
+ib_send_lat_roceP2p1s0f1_isolation
+  role   : client
+  local  : 10.65.0.41
+  peer   : 10.65.0.40
+  command: ib_send_lat -d roceP2p1s0f1 --bind_source_ip 10.65.0.41 -i 1 -F -p 18542 -c RC -n 15000 --report_gbits -a 10.65.0.40
+ib_write_lat_roceP2p1s0f1_isolation
+  role   : client
+  local  : 10.65.0.41
+  peer   : 10.65.0.40
+  command: ib_write_lat -d roceP2p1s0f1 --bind_source_ip 10.65.0.41 -i 1 -F -p 18543 -c RC -n 15000 --report_gbits -a 10.65.0.40
+ib_read_lat_roceP2p1s0f1_isolation
+  role   : client
+  local  : 10.65.0.41
+  peer   : 10.65.0.40
+  command: ib_read_lat -d roceP2p1s0f1 --bind_source_ip 10.65.0.41 -i 1 -F -p 18544 -c RC -n 15000 --report_gbits -a 10.65.0.40
+ib_send_bw_roceP2p1s0f1_isolation
+  role   : client
+  local  : 10.65.0.41
+  peer   : 10.65.0.40
+  command: ib_send_bw -d roceP2p1s0f1 --bind_source_ip 10.65.0.41 -i 1 -F -p 18545 -c RC -n 15000 --report_gbits -a 10.65.0.40
+ib_write_bw_roceP2p1s0f1_isolation
+  role   : client
+  local  : 10.65.0.41
+  peer   : 10.65.0.40
+  command: ib_write_bw -d roceP2p1s0f1 --bind_source_ip 10.65.0.41 -i 1 -F -p 18546 -c RC -n 15000 --report_gbits -a 10.65.0.40
+ib_read_bw_roceP2p1s0f1_isolation
+  role   : client
+  local  : 10.65.0.41
+  peer   : 10.65.0.40
+  command: ib_read_bw -d roceP2p1s0f1 --bind_source_ip 10.65.0.41 -i 1 -F -p 18547 -c RC -n 15000 --report_gbits -a 10.65.0.40
+ib_send_bw_bidi_roceP2p1s0f1_isolation
+  role   : client
+  local  : 10.65.0.41
+  peer   : 10.65.0.40
+  command: ib_send_bw -d roceP2p1s0f1 --bind_source_ip 10.65.0.41 -i 1 -F -p 18548 -c RC -n 15000 --report_gbits -b -a 10.65.0.40
+ib_write_bw_bidi_roceP2p1s0f1_isolation
+  role   : client
+  local  : 10.65.0.41
+  peer   : 10.65.0.40
+  command: ib_write_bw -d roceP2p1s0f1 --bind_source_ip 10.65.0.41 -i 1 -F -p 18549 -c RC -n 15000 --report_gbits -b -a 10.65.0.40
+ib_read_bw_bidi_roceP2p1s0f1_isolation
+  role   : client
+  local  : 10.65.0.41
+  peer   : 10.65.0.40
+  command: ib_read_bw -d roceP2p1s0f1 --bind_source_ip 10.65.0.41 -i 1 -F -p 18550 -c RC -n 15000 --report_gbits -b -a 10.65.0.40
+ib_send_lat_rocep1s0f0_concurrent
+  role   : client
+  local  : 10.65.0.11
+  peer   : 10.65.0.10
+  command: ib_send_lat -d rocep1s0f0 --bind_source_ip 10.65.0.11 -i 1 -F -p 18515 -c RC -n 15000 --report_gbits -a 10.65.0.10
+ib_send_lat_rocep1s0f1_concurrent
+  role   : client
+  local  : 10.65.0.21
+  peer   : 10.65.0.20
+  command: ib_send_lat -d rocep1s0f1 --bind_source_ip 10.65.0.21 -i 1 -F -p 18524 -c RC -n 15000 --report_gbits -a 10.65.0.20
+ib_send_lat_roceP2p1s0f0_concurrent
+  role   : client
+  local  : 10.65.0.31
+  peer   : 10.65.0.30
+  command: ib_send_lat -d roceP2p1s0f0 --bind_source_ip 10.65.0.31 -i 1 -F -p 18533 -c RC -n 15000 --report_gbits -a 10.65.0.30
+ib_send_lat_roceP2p1s0f1_concurrent
+  role   : client
+  local  : 10.65.0.41
+  peer   : 10.65.0.40
+  command: ib_send_lat -d roceP2p1s0f1 --bind_source_ip 10.65.0.41 -i 1 -F -p 18542 -c RC -n 15000 --report_gbits -a 10.65.0.40
+ib_write_lat_rocep1s0f0_concurrent
+  role   : client
+  local  : 10.65.0.11
+  peer   : 10.65.0.10
+  command: ib_write_lat -d rocep1s0f0 --bind_source_ip 10.65.0.11 -i 1 -F -p 18516 -c RC -n 15000 --report_gbits -a 10.65.0.10
+ib_write_lat_rocep1s0f1_concurrent
+  role   : client
+  local  : 10.65.0.21
+  peer   : 10.65.0.20
+  command: ib_write_lat -d rocep1s0f1 --bind_source_ip 10.65.0.21 -i 1 -F -p 18525 -c RC -n 15000 --report_gbits -a 10.65.0.20
+ib_write_lat_roceP2p1s0f0_concurrent
+  role   : client
+  local  : 10.65.0.31
+  peer   : 10.65.0.30
+  command: ib_write_lat -d roceP2p1s0f0 --bind_source_ip 10.65.0.31 -i 1 -F -p 18534 -c RC -n 15000 --report_gbits -a 10.65.0.30
+ib_write_lat_roceP2p1s0f1_concurrent
+  role   : client
+  local  : 10.65.0.41
+  peer   : 10.65.0.40
+  command: ib_write_lat -d roceP2p1s0f1 --bind_source_ip 10.65.0.41 -i 1 -F -p 18543 -c RC -n 15000 --report_gbits -a 10.65.0.40
+ib_read_lat_rocep1s0f0_concurrent
+  role   : client
+  local  : 10.65.0.11
+  peer   : 10.65.0.10
+  command: ib_read_lat -d rocep1s0f0 --bind_source_ip 10.65.0.11 -i 1 -F -p 18517 -c RC -n 15000 --report_gbits -a 10.65.0.10
+ib_read_lat_rocep1s0f1_concurrent
+  role   : client
+  local  : 10.65.0.21
+  peer   : 10.65.0.20
+  command: ib_read_lat -d rocep1s0f1 --bind_source_ip 10.65.0.21 -i 1 -F -p 18526 -c RC -n 15000 --report_gbits -a 10.65.0.20
+ib_read_lat_roceP2p1s0f0_concurrent
+  role   : client
+  local  : 10.65.0.31
+  peer   : 10.65.0.30
+  command: ib_read_lat -d roceP2p1s0f0 --bind_source_ip 10.65.0.31 -i 1 -F -p 18535 -c RC -n 15000 --report_gbits -a 10.65.0.30
+ib_read_lat_roceP2p1s0f1_concurrent
+  role   : client
+  local  : 10.65.0.41
+  peer   : 10.65.0.40
+  command: ib_read_lat -d roceP2p1s0f1 --bind_source_ip 10.65.0.41 -i 1 -F -p 18544 -c RC -n 15000 --report_gbits -a 10.65.0.40
+ib_send_bw_rocep1s0f0_concurrent
+  role   : client
+  local  : 10.65.0.11
+  peer   : 10.65.0.10
+  command: ib_send_bw -d rocep1s0f0 --bind_source_ip 10.65.0.11 -i 1 -F -p 18518 -c RC -n 15000 --report_gbits -a 10.65.0.10
+ib_send_bw_rocep1s0f1_concurrent
+  role   : client
+  local  : 10.65.0.21
+  peer   : 10.65.0.20
+  command: ib_send_bw -d rocep1s0f1 --bind_source_ip 10.65.0.21 -i 1 -F -p 18527 -c RC -n 15000 --report_gbits -a 10.65.0.20
+ib_send_bw_roceP2p1s0f0_concurrent
+  role   : client
+  local  : 10.65.0.31
+  peer   : 10.65.0.30
+  command: ib_send_bw -d roceP2p1s0f0 --bind_source_ip 10.65.0.31 -i 1 -F -p 18536 -c RC -n 15000 --report_gbits -a 10.65.0.30
+ib_send_bw_roceP2p1s0f1_concurrent
+  role   : client
+  local  : 10.65.0.41
+  peer   : 10.65.0.40
+  command: ib_send_bw -d roceP2p1s0f1 --bind_source_ip 10.65.0.41 -i 1 -F -p 18545 -c RC -n 15000 --report_gbits -a 10.65.0.40
+ib_write_bw_rocep1s0f0_concurrent
+  role   : client
+  local  : 10.65.0.11
+  peer   : 10.65.0.10
+  command: ib_write_bw -d rocep1s0f0 --bind_source_ip 10.65.0.11 -i 1 -F -p 18519 -c RC -n 15000 --report_gbits -a 10.65.0.10
+ib_write_bw_rocep1s0f1_concurrent
+  role   : client
+  local  : 10.65.0.21
+  peer   : 10.65.0.20
+  command: ib_write_bw -d rocep1s0f1 --bind_source_ip 10.65.0.21 -i 1 -F -p 18528 -c RC -n 15000 --report_gbits -a 10.65.0.20
+ib_write_bw_roceP2p1s0f0_concurrent
+  role   : client
+  local  : 10.65.0.31
+  peer   : 10.65.0.30
+  command: ib_write_bw -d roceP2p1s0f0 --bind_source_ip 10.65.0.31 -i 1 -F -p 18537 -c RC -n 15000 --report_gbits -a 10.65.0.30
+ib_write_bw_roceP2p1s0f1_concurrent
+  role   : client
+  local  : 10.65.0.41
+  peer   : 10.65.0.40
+  command: ib_write_bw -d roceP2p1s0f1 --bind_source_ip 10.65.0.41 -i 1 -F -p 18546 -c RC -n 15000 --report_gbits -a 10.65.0.40
+ib_read_bw_rocep1s0f0_concurrent
+  role   : client
+  local  : 10.65.0.11
+  peer   : 10.65.0.10
+  command: ib_read_bw -d rocep1s0f0 --bind_source_ip 10.65.0.11 -i 1 -F -p 18520 -c RC -n 15000 --report_gbits -a 10.65.0.10
+ib_read_bw_rocep1s0f1_concurrent
+  role   : client
+  local  : 10.65.0.21
+  peer   : 10.65.0.20
+  command: ib_read_bw -d rocep1s0f1 --bind_source_ip 10.65.0.21 -i 1 -F -p 18529 -c RC -n 15000 --report_gbits -a 10.65.0.20
+ib_read_bw_roceP2p1s0f0_concurrent
+  role   : client
+  local  : 10.65.0.31
+  peer   : 10.65.0.30
+  command: ib_read_bw -d roceP2p1s0f0 --bind_source_ip 10.65.0.31 -i 1 -F -p 18538 -c RC -n 15000 --report_gbits -a 10.65.0.30
+ib_read_bw_roceP2p1s0f1_concurrent
+  role   : client
+  local  : 10.65.0.41
+  peer   : 10.65.0.40
+  command: ib_read_bw -d roceP2p1s0f1 --bind_source_ip 10.65.0.41 -i 1 -F -p 18547 -c RC -n 15000 --report_gbits -a 10.65.0.40
+ib_send_bw_bidi_rocep1s0f0_concurrent
+  role   : client
+  local  : 10.65.0.11
+  peer   : 10.65.0.10
+  command: ib_send_bw -d rocep1s0f0 --bind_source_ip 10.65.0.11 -i 1 -F -p 18521 -c RC -n 15000 --report_gbits -b -a 10.65.0.10
+ib_send_bw_bidi_rocep1s0f1_concurrent
+  role   : client
+  local  : 10.65.0.21
+  peer   : 10.65.0.20
+  command: ib_send_bw -d rocep1s0f1 --bind_source_ip 10.65.0.21 -i 1 -F -p 18530 -c RC -n 15000 --report_gbits -b -a 10.65.0.20
+ib_send_bw_bidi_roceP2p1s0f0_concurrent
+  role   : client
+  local  : 10.65.0.31
+  peer   : 10.65.0.30
+  command: ib_send_bw -d roceP2p1s0f0 --bind_source_ip 10.65.0.31 -i 1 -F -p 18539 -c RC -n 15000 --report_gbits -b -a 10.65.0.30
+ib_send_bw_bidi_roceP2p1s0f1_concurrent
+  role   : client
+  local  : 10.65.0.41
+  peer   : 10.65.0.40
+  command: ib_send_bw -d roceP2p1s0f1 --bind_source_ip 10.65.0.41 -i 1 -F -p 18548 -c RC -n 15000 --report_gbits -b -a 10.65.0.40
+ib_write_bw_bidi_rocep1s0f0_concurrent
+  role   : client
+  local  : 10.65.0.11
+  peer   : 10.65.0.10
+  command: ib_write_bw -d rocep1s0f0 --bind_source_ip 10.65.0.11 -i 1 -F -p 18522 -c RC -n 15000 --report_gbits -b -a 10.65.0.10
+ib_write_bw_bidi_rocep1s0f1_concurrent
+  role   : client
+  local  : 10.65.0.21
+  peer   : 10.65.0.20
+  command: ib_write_bw -d rocep1s0f1 --bind_source_ip 10.65.0.21 -i 1 -F -p 18531 -c RC -n 15000 --report_gbits -b -a 10.65.0.20
+ib_write_bw_bidi_roceP2p1s0f0_concurrent
+  role   : client
+  local  : 10.65.0.31
+  peer   : 10.65.0.30
+  command: ib_write_bw -d roceP2p1s0f0 --bind_source_ip 10.65.0.31 -i 1 -F -p 18540 -c RC -n 15000 --report_gbits -b -a 10.65.0.30
+ib_write_bw_bidi_roceP2p1s0f1_concurrent
+  role   : client
+  local  : 10.65.0.41
+  peer   : 10.65.0.40
+  command: ib_write_bw -d roceP2p1s0f1 --bind_source_ip 10.65.0.41 -i 1 -F -p 18549 -c RC -n 15000 --report_gbits -b -a 10.65.0.40
+ib_read_bw_bidi_rocep1s0f0_concurrent
+  role   : client
+  local  : 10.65.0.11
+  peer   : 10.65.0.10
+  command: ib_read_bw -d rocep1s0f0 --bind_source_ip 10.65.0.11 -i 1 -F -p 18523 -c RC -n 15000 --report_gbits -b -a 10.65.0.10
+ib_read_bw_bidi_rocep1s0f1_concurrent
+  role   : client
+  local  : 10.65.0.21
+  peer   : 10.65.0.20
+  command: ib_read_bw -d rocep1s0f1 --bind_source_ip 10.65.0.21 -i 1 -F -p 18532 -c RC -n 15000 --report_gbits -b -a 10.65.0.20
+ib_read_bw_bidi_roceP2p1s0f0_concurrent
+  role   : client
+  local  : 10.65.0.31
+  peer   : 10.65.0.30
+  command: ib_read_bw -d roceP2p1s0f0 --bind_source_ip 10.65.0.31 -i 1 -F -p 18541 -c RC -n 15000 --report_gbits -b -a 10.65.0.30
+ib_read_bw_bidi_roceP2p1s0f1_concurrent
+  role   : client
+  local  : 10.65.0.41
+  peer   : 10.65.0.40
+  command: ib_read_bw -d roceP2p1s0f1 --bind_source_ip 10.65.0.41 -i 1 -F -p 18550 -c RC -n 15000 --report_gbits -b -a 10.65.0.40

@@ -1,0 +1,16 @@
+mode=isolation device=rocep1s0f0 port=18515
+/usr/bin/ib_write_bw -d rocep1s0f0 --bind_source_ip 10.65.0.11 -i 1 -F -N -p 18515 -c RC -n 1000 -s 1000000 --report_gbits 10.65.0.10
+mode=isolation device=rocep1s0f1 port=18517
+/usr/bin/ib_write_bw -d rocep1s0f1 --bind_source_ip 10.65.0.21 -i 1 -F -N -p 18517 -c RC -n 1000 -s 1000000 --report_gbits 10.65.0.20
+mode=isolation device=roceP2p1s0f0 port=18519
+/usr/bin/ib_write_bw -d roceP2p1s0f0 --bind_source_ip 10.65.0.31 -i 1 -F -N -p 18519 -c RC -n 1000 -s 1000000 --report_gbits 10.65.0.30
+mode=isolation device=roceP2p1s0f1 port=18521
+/usr/bin/ib_write_bw -d roceP2p1s0f1 --bind_source_ip 10.65.0.41 -i 1 -F -N -p 18521 -c RC -n 1000 -s 1000000 --report_gbits 10.65.0.40
+mode=concurrent device=rocep1s0f0 port=18516
+/usr/bin/ib_write_bw -d rocep1s0f0 --bind_source_ip 10.65.0.11 -i 1 -F -N -p 18516 -c RC -n 1000 -s 1000000 --report_gbits 10.65.0.10
+mode=concurrent device=rocep1s0f1 port=18518
+/usr/bin/ib_write_bw -d rocep1s0f1 --bind_source_ip 10.65.0.21 -i 1 -F -N -p 18518 -c RC -n 1000 -s 1000000 --report_gbits 10.65.0.20
+mode=concurrent device=roceP2p1s0f0 port=18520
+/usr/bin/ib_write_bw -d roceP2p1s0f0 --bind_source_ip 10.65.0.31 -i 1 -F -N -p 18520 -c RC -n 1000 -s 1000000 --report_gbits 10.65.0.30
+mode=concurrent device=roceP2p1s0f1 port=18522
+/usr/bin/ib_write_bw -d roceP2p1s0f1 --bind_source_ip 10.65.0.41 -i 1 -F -N -p 18522 -c RC -n 1000 -s 1000000 --report_gbits 10.65.0.40

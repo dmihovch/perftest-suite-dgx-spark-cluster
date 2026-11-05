@@ -1,0 +1,27 @@
+
+************************************
+* Waiting for client to connect... *
+************************************
+---------------------------------------------------------------------------------------
+                    RDMA_Write BW Test
+ Dual-port       : OFF		Device         : rocep1s0f1
+ Number of qps   : 1		Transport type : IB
+ Connection type : RC		Using SRQ      : OFF
+ PCIe relax order: ON
+ ibv_wr* API     : ON
+ CQ Moderation   : 1
+ Mtu             : 4096[B]
+ Link type       : Ethernet
+ GID index       : 5
+ Max inline data : 0[B]
+ rdma_cm QPs	 : OFF
+ Data ex. method : Ethernet
+---------------------------------------------------------------------------------------
+ local address: LID 0000 QPN 0x0326 PSN 0xc7231f RKey 0x1c0300 VAddr 0x00fe6c81379240
+ GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:65:00:40
+ remote address: LID 0000 QPN 0x03a6 PSN 0x6bf10e RKey 0x1def00 VAddr 0x00f6ecd6e39240
+ GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:65:00:41
+---------------------------------------------------------------------------------------
+ #bytes     #iterations    BW peak[Gb/sec]    BW average[Gb/sec]   MsgRate[Mpps]
+ 1000000    1000             0.00               109.23 		   0.013654
+---------------------------------------------------------------------------------------

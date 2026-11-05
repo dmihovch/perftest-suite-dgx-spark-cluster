@@ -1,0 +1,57 @@
+{
+  "run_name": "rdma-transfer-nov5/run-005",
+  "role": "host",
+  "architecture": "aarch64",
+  "node": "gx10-00",
+  "peer": "gx10-01",
+  "started_utc": "2026-11-05T19:33:41.930353+00:00",
+  "modes": [
+    "isolation",
+    "concurrent"
+  ],
+  "verb": "write",
+  "transfer_bytes": 1000000000,
+  "message_bytes": 1000000,
+  "iterations": 1000,
+  "data_phase_time_estimate": {
+    "source": "perftest-reported average bandwidth",
+    "calculation": "transfer_bytes * 8 / (reported_average_Gbit_s * 1e9)",
+    "rounding_bound": "derived from the displayed bandwidth precision, assuming round-to-nearest"
+  },
+  "client_process_wall_elapsed_s_includes": [
+    "process startup",
+    "RDMA connection setup",
+    "data transfer",
+    "process teardown"
+  ],
+  "links": [
+    {
+      "device": "roceP2p1s0f0",
+      "netdev": "enP2p1s0f0np0",
+      "local_ip": "10.65.0.10",
+      "peer_ip": "10.65.0.11",
+      "port_index": 0
+    },
+    {
+      "device": "roceP2p1s0f1",
+      "netdev": "enP2p1s0f1np1",
+      "local_ip": "10.65.0.20",
+      "peer_ip": "10.65.0.21",
+      "port_index": 1
+    },
+    {
+      "device": "rocep1s0f0",
+      "netdev": "enp1s0f0np0",
+      "local_ip": "10.65.0.30",
+      "peer_ip": "10.65.0.31",
+      "port_index": 2
+    },
+    {
+      "device": "rocep1s0f1",
+      "netdev": "enp1s0f1np1",
+      "local_ip": "10.65.0.40",
+      "peer_ip": "10.65.0.41",
+      "port_index": 3
+    }
+  ]
+}
